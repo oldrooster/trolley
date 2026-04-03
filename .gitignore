@@ -1,0 +1,27 @@
+# Environment
+.env
+
+# Service account credentials
+*.json
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Data directories
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Docker
+*.log

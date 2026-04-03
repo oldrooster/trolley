@@ -1,0 +1,12 @@
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+**/node_modules
+**/dist
+**/.git
+**/.env
+**/trolley.db
+**/PLAN.md
+**/SPEC.md
+**/README.md

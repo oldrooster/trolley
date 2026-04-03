@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply font-sans;
+  }
+
+  body {
+    @apply bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 antialiased;
+  }
+}
+
+@layer components {
+  /* ── Navigation ── */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors;
+  }
+
+  .nav-item-inactive {
+    @apply text-stone-500 dark:text-stone-400
+           hover:bg-stone-100 dark:hover:bg-stone-800
+           hover:text-stone-900 dark:hover:text-stone-100;
+  }
+
+  .nav-item-active {
+    @apply bg-brand-500 text-white;
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white dark:bg-stone-900 rounded-xl
+           border border-stone-200 dark:border-stone-800 shadow-sm;
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply bg-brand-500 text-white px-4 py-2 rounded-lg text-sm font-medium
+           hover:bg-brand-600 active:bg-brand-700 transition-colors
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200
+           px-4 py-2 rounded-lg text-sm font-medium
+           border border-stone-200 dark:border-stone-700
+           hover:bg-stone-50 dark:hover:bg-stone-700
+           active:bg-stone-100 dark:active:bg-stone-600
+           transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply text-stone-500 dark:text-stone-400 px-3 py-2 rounded-lg text-sm font-medium
+           hover:bg-stone-100 dark:hover:bg-stone-800
+           hover:text-stone-900 dark:hover:text-stone-100 transition-colors;
+  }
+
+  /* ── Inputs ── */
+  .input {
+    @apply w-full px-3 py-2 rounded-lg text-sm
+           bg-white dark:bg-stone-800
+           border border-stone-200 dark:border-stone-700
+           text-stone-900 dark:text-stone-100
+           placeholder:text-stone-400 dark:placeholder:text-stone-500
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
+           transition-colors;
+  }
+
+  /* ── Typography ── */
+  .page-header {
+    @apply text-xl font-semibold text-stone-900 dark:text-stone-100;
+  }
+
+  .label {
+    @apply text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wide;
+  }
+}
+
+/* ── Safe area for iOS bottom nav ── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

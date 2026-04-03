@@ -1,0 +1,17 @@
+services:
+  trolley:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - trolley-data:/data
+    environment:
+      DATABASE_URL: sqlite:////data/trolley.db
+      AI_PROVIDER: vertex
+      VERTEX_PROJECT_ID: ""
+      VERTEX_LOCATION: us-central1
+      VERTEX_API_KEY: ""
+    restart: unless-stopped
+
+volumes:
+  trolley-data:
