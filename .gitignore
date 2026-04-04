@@ -2,7 +2,7 @@
 .env
 
 # Service account credentials
-*.json
+vertex.json
 
 # Database
 *.db
