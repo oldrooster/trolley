@@ -33,9 +33,23 @@ def search_catalogue(
         .filter(Product.id.in_(ids))
         .all()
     )
-    # Preserve FTS rank order
-    order = {pid: idx for idx, pid in enumerate(ids)}
-    return sorted(products, key=lambda p: order.get(p.id, 999))
+    # Sort: base_name matches first, then variant, then brand.
+    # Within each tier: base-only (no variant/brand) before specific entries.
+    q_lower = q.lower()
+
+    def _sort_key(p: Product):
+        if q_lower in p.base_name.lower():
+            tier = 0
+        elif p.variant_name and q_lower in p.variant_name.lower():
+            tier = 1
+        elif p.brand_name and q_lower in p.brand_name.lower():
+            tier = 2
+        else:
+            tier = 3
+        specificity = (1 if p.variant_name else 0) + (1 if p.brand_name else 0)
+        return (tier, specificity)
+
+    return sorted(products, key=_sort_key)
 
 
 # ── Catalogue browse ──────────────────────────────────────────────────────────

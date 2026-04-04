@@ -27,6 +27,7 @@ class IngredientIn(BaseModel):
     quantity: float | None = None
     unit: str | None = None
     notes: str | None = None
+    create_product: bool = False  # create a base catalogue entry if no match
 
 
 class IngredientOut(BaseModel):
@@ -115,9 +116,32 @@ def load_recipe(db: Session, recipe_id: int) -> Recipe:
 
 
 def save_ingredients(db: Session, recipe_id: int, ingredients: list[IngredientIn]) -> None:
+    from models import Product
     db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe_id).delete()
     for ing in ingredients:
-        db.add(RecipeIngredient(recipe_id=recipe_id, **ing.model_dump()))
+        product_id = ing.product_id
+        if ing.create_product and not product_id:
+            base = ing.ingredient_name.strip().title()
+            existing = db.query(Product).filter(
+                Product.base_name == base,
+                Product.variant_name.is_(None),
+                Product.brand_name.is_(None),
+            ).first()
+            if existing:
+                product_id = existing.id
+            else:
+                p = Product(base_name=base, unit=ing.unit or "each")
+                db.add(p)
+                db.flush()
+                product_id = p.id
+        db.add(RecipeIngredient(
+            recipe_id=recipe_id,
+            product_id=product_id,
+            ingredient_name=ing.ingredient_name,
+            quantity=ing.quantity,
+            unit=ing.unit,
+            notes=ing.notes,
+        ))
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────

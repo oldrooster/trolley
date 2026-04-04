@@ -53,7 +53,17 @@ Extract all purchased items and return valid JSON matching this exact schema —
   "purchase_date": "2024-06-15",
   "total_amount": 87.43,
   "items": [
-    {"raw_name": "ANCHOR BLUE TOP MILK 2L", "quantity": 1.0, "unit_price": 4.99, "total_price": 4.99}
+    {
+      "raw_name": "ANCHOR BLUE TOP MILK 2L",
+      "quantity": 1.0,
+      "unit_price": 4.99,
+      "total_price": 4.99,
+      "suggested_base_name": "Milk",
+      "suggested_variant_name": "Blue Top",
+      "suggested_brand_name": "Anchor Blue Top Milk 2L",
+      "suggested_category": "Dairy",
+      "suggested_unit": "L"
+    }
   ]
 }
 
@@ -65,6 +75,14 @@ Rules:
   - Exclude: subtotals, GST lines, loyalty points, savings summaries, bag charges that aren't products
   - quantity defaults to 1.0 if not shown on receipt
   - unit_price and total_price in NZD, null if not visible
+- For each item also provide catalogue suggestions:
+  - suggested_base_name: the generic product name e.g. "Milk", "Chips", "Bread", "Apple"
+  - suggested_variant_name: the specific variety e.g. "Blue Top", "Salt & Vinegar", "Sourdough" — null if generic
+    - For Produce: do NOT use "Fresh" as a variant — fresh is implied. Use variety names instead e.g. "Granny Smith", "Braeburn". If the only distinguishing word is "Fresh", set variant to null.
+    - For Dairy/Bakery: do NOT use "Fresh" as a variant either.
+  - suggested_brand_name: full brand+product name e.g. "Anchor Blue Top Milk 2L" — null if no clear brand
+  - suggested_category: one of "Dairy", "Bakery", "Produce", "Meat & Seafood", "Pantry", "Breakfast", "Snacks", "Drinks", "Frozen", "Household", "Condiments" — pick the best fit
+  - suggested_unit: one of "each", "kg", "g", "L", "mL", "dozen", "bunch", "bag", "box", "pack"
 - Return ONLY valid JSON with no markdown fences"""
 
 

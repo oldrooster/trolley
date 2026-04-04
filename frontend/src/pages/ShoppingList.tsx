@@ -217,6 +217,36 @@ export default function ShoppingListPage() {
   )
 }
 
+// ── Group suggestions: base product first, then variants indented ─────────────
+
+function groupSuggestions(products: Product[]): { product: Product; isVariant: boolean }[] {
+  const byBase: Record<string, Product[]> = {}
+  for (const p of products) {
+    const key = p.base_name.toLowerCase()
+    if (!byBase[key]) byBase[key] = []
+    byBase[key].push(p)
+  }
+  const result: { product: Product; isVariant: boolean }[] = []
+  for (const group of Object.values(byBase)) {
+    // Sort within group: base-only (0) → variant-only (1) → brand/full (2)
+    const sorted = [...group].sort((a, b) => {
+      const tier = (p: Product) =>
+        !p.variant_name && !p.brand_name ? 0 : !p.brand_name ? 1 : 2
+      return tier(a) - tier(b)
+    })
+    const base = sorted.find(p => !p.variant_name && !p.brand_name)
+    const rest = sorted.filter(p => p.variant_name || p.brand_name)
+    if (base) {
+      result.push({ product: base, isVariant: false })
+      rest.forEach(p => result.push({ product: p, isVariant: true }))
+    } else {
+      result.push({ product: sorted[0], isVariant: false })
+      sorted.slice(1).forEach(p => result.push({ product: p, isVariant: true }))
+    }
+  }
+  return result
+}
+
 // ── Add item row ──────────────────────────────────────────────────────────────
 
 function AddItemRow({ onAdd }: { onAdd: (p: AddItemPayload) => Promise<void> }) {
@@ -316,24 +346,29 @@ function AddItemRow({ onAdd }: { onAdd: (p: AddItemPayload) => Promise<void> }) 
 
       {/* Autocomplete dropdown */}
       {showDropdown && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 z-20 mt-1 card shadow-lg max-h-60 overflow-y-auto">
-          {suggestions.map((product, idx) => (
+        <div className="absolute top-full left-0 right-0 z-20 mt-1 card shadow-lg max-h-72 overflow-y-auto">
+          {groupSuggestions(suggestions).map((item, idx) => (
             <button
-              key={product.id}
-              className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors ${
-                idx === selectedIndex ? 'bg-brand-50 text-brand-700' : 'hover:bg-stone-50'
-              }`}
-              onMouseDown={() => addItem(product)}
+              key={item.product.id}
+              className={`w-full text-left text-sm flex items-center justify-between transition-colors ${
+                item.isVariant ? 'pl-7 pr-4 py-2' : 'px-4 py-2.5'
+              } ${idx === selectedIndex ? 'bg-brand-50 text-brand-700' : 'hover:bg-stone-50'}`}
+              onMouseDown={() => addItem(item.product)}
             >
-              <span>
-                <span className="font-medium">{product.display_name ?? product.base_name}</span>
-                {product.variant_name && product.base_name !== product.display_name && (
-                  <span className="text-stone-400 ml-2 text-xs">{product.base_name}</span>
+              <span className="flex items-center gap-2 min-w-0">
+                {item.isVariant && <span className="text-stone-300 text-xs shrink-0">↳</span>}
+                <span className={item.isVariant ? 'text-stone-700' : 'font-medium'}>
+                  {item.isVariant
+                    ? (item.product.variant_name ?? item.product.brand_name ?? item.product.base_name)
+                    : item.product.base_name}
+                </span>
+                {!item.isVariant && item.product.variant_name && (
+                  <span className="text-xs text-stone-400">any variety</span>
                 )}
               </span>
-              {product.category && (
-                <span className="text-xs text-stone-400 shrink-0 ml-3">
-                  {product.category.icon} {product.category.name}
+              {item.product.category && (
+                <span className="text-xs text-stone-400 shrink-0 ml-3 hidden sm:block">
+                  {item.product.category.icon} {item.product.category.name}
                 </span>
               )}
             </button>

@@ -1,5 +1,5 @@
 """
-Google Vertex AI provider using the Gemini model family.
+Google Vertex AI provider using the google-genai SDK (current, non-deprecated).
 
 Authentication (choose one):
   1. Set GOOGLE_APPLICATION_CREDENTIALS to a service account JSON key file path
@@ -8,7 +8,7 @@ Authentication (choose one):
 
 Required env vars:
   VERTEX_PROJECT_ID   — GCP project ID
-  VERTEX_LOCATION     — region, e.g. us-central1 (default)
+  VERTEX_LOCATION     — region, e.g. us-central1 or global (default: us-central1)
 """
 import json
 import os
@@ -17,41 +17,39 @@ from functools import cached_property
 from ai.base import AIProvider, RecipeData, ReceiptData
 from ai import prompts
 
+MODEL = "gemini-2.5-flash"
+
 
 class VertexAIProvider:
-    """Vertex AI implementation using Gemini for text/vision and Imagen for image generation."""
+    """Vertex AI implementation using the google-genai SDK with vertexai=True."""
 
     def __init__(self, project_id: str, location: str = "us-central1", credentials_path: str = ""):
         self.project_id = project_id
         self.location = location
         self.credentials_path = credentials_path
 
-    def _init_vertexai(self):
-        import vertexai
-        kwargs: dict = {"project": self.project_id, "location": self.location}
+    @cached_property
+    def _client(self):
+        from google import genai
+
+        # If a credentials file is specified, point ADC at it.
+        # genai.Client picks up GOOGLE_APPLICATION_CREDENTIALS automatically.
         if self.credentials_path and os.path.exists(self.credentials_path):
-            from google.oauth2 import service_account
-            creds = service_account.Credentials.from_service_account_file(self.credentials_path)
-            kwargs["credentials"] = creds
-        vertexai.init(**kwargs)
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials_path
 
-    @cached_property
-    def _text_model(self):
-        self._init_vertexai()
-        from vertexai.generative_models import GenerativeModel
-        return GenerativeModel("gemini-2.0-flash-001")
-
-    @cached_property
-    def _vision_model(self):
-        self._init_vertexai()
-        from vertexai.generative_models import GenerativeModel
-        return GenerativeModel("gemini-2.0-flash-001")
+        return genai.Client(
+            vertexai=True,
+            project=self.project_id,
+            location=self.location,
+        )
 
     def _generate_json(self, prompt: str, system: str) -> dict:
-        from vertexai.generative_models import GenerationConfig
-        response = self._text_model.generate_content(
-            [system, prompt],
-            generation_config=GenerationConfig(
+        from google.genai import types
+        response = self._client.models.generate_content(
+            model=MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system,
                 response_mime_type="application/json",
                 temperature=0.2,
             ),
@@ -59,11 +57,15 @@ class VertexAIProvider:
         return json.loads(response.text)
 
     def _generate_json_with_file(self, prompt: str, system: str, file_bytes: bytes, mime_type: str) -> dict:
-        from vertexai.generative_models import GenerationConfig, Part
-        file_part = Part.from_data(data=file_bytes, mime_type=mime_type)
-        response = self._vision_model.generate_content(
-            [file_part, system, prompt],
-            generation_config=GenerationConfig(
+        from google.genai import types
+        response = self._client.models.generate_content(
+            model=MODEL,
+            contents=[
+                types.Part.from_bytes(data=file_bytes, mime_type=mime_type),
+                prompt,
+            ],
+            config=types.GenerateContentConfig(
+                system_instruction=system,
                 response_mime_type="application/json",
                 temperature=0.1,
             ),
@@ -71,8 +73,13 @@ class VertexAIProvider:
         return json.loads(response.text)
 
     def chat(self, prompt: str, context: str = "") -> str:
+        from google.genai import types
         full = f"{context}\n\n{prompt}" if context else prompt
-        response = self._text_model.generate_content(full)
+        response = self._client.models.generate_content(
+            model=MODEL,
+            contents=full,
+            config=types.GenerateContentConfig(temperature=0.7),
+        )
         return response.text
 
     def extract_receipt(self, file_bytes: bytes, mime_type: str) -> ReceiptData:
@@ -97,10 +104,9 @@ class VertexAIProvider:
                          headers={"User-Agent": "Mozilla/5.0 Trolley/1.0"})
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
-        # Remove script/style noise
         for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
             tag.decompose()
-        text = soup.get_text(separator="\n", strip=True)[:12000]  # ~3k tokens
+        text = soup.get_text(separator="\n", strip=True)[:12000]
 
         data = self._generate_json(
             prompt=f"Extract the recipe from this webpage content:\n\n{text}",
@@ -116,11 +122,12 @@ class VertexAIProvider:
         return _recipe_data_from_dict(data)
 
     def generate_image(self, prompt: str) -> bytes:
-        self._init_vertexai()
-        from vertexai.preview.vision_models import ImageGenerationModel
-        model = ImageGenerationModel.from_pretrained("imagen-3.0-fast-generate-001")
-        images = model.generate_images(prompt=prompt, number_of_images=1)
-        return images[0]._image_bytes
+        response = self._client.models.generate_images(
+            model="imagen-3.0-fast-generate-001",
+            prompt=prompt,
+            config={"number_of_images": 1},
+        )
+        return response.generated_images[0].image.image_bytes
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

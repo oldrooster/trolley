@@ -143,6 +143,7 @@ export default function Settings() {
             <div>
               <label className="label block mb-1">Region</label>
               <select className="input" value={form.vertex_location ?? 'us-central1'} onChange={e => set('vertex_location', e.target.value)}>
+                <option value="global">global</option>
                 <option value="us-central1">us-central1 (Iowa)</option>
                 <option value="us-east1">us-east1 (South Carolina)</option>
                 <option value="europe-west1">europe-west1 (Belgium)</option>

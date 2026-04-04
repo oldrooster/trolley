@@ -5,6 +5,7 @@ services:
       - "8080:8080"
     volumes:
       - trolley-data:/data
+      - ./vertex.json:/secrets/vertex.json:ro
     environment:
       DATABASE_URL: sqlite:////data/trolley.db
       AI_PROVIDER: vertex

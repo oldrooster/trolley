@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Package, Plus, Search, Pencil, Trash2, X } from 'lucide-react'
+import { Package, Plus, Search, Pencil, Trash2, X, ChevronDown, ChevronRight } from 'lucide-react'
 import { api } from '../lib/api'
 import type { Category, Product } from '../lib/types'
 import { useDebounce } from '../hooks/useDebounce'
@@ -15,13 +15,13 @@ export default function Catalogue() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<'add' | 'edit' | null>(null)
   const [editing, setEditing] = useState<Product | null>(null)
+  const [prefillBase, setPrefillBase] = useState<Product | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [deleting, setDeleting] = useState(false)
   const { success, error } = useToast()
 
   const debouncedQuery = useDebounce(query, 250)
 
-  // Load categories once
   useEffect(() => {
     api.catalogue.categories().then(data => setCategories(data as Category[])).catch(console.error)
   }, [])
@@ -63,9 +63,10 @@ export default function Catalogue() {
     setDeleting(true)
     try {
       await api.catalogue.delete(deleteTarget.id)
+      // Optimistic update — remove from local state without reloading (avoids scroll jump)
+      setProducts(prev => prev.filter(p => p.id !== deleteTarget.id))
       setDeleteTarget(null)
       success('Product deleted')
-      await loadProducts()
     } catch {
       error('Failed to delete product')
     } finally {
@@ -75,10 +76,32 @@ export default function Catalogue() {
 
   function openEdit(product: Product) {
     setEditing(product)
+    setPrefillBase(null)
     setModal('edit')
   }
 
-  // Group products by category when not searching
+  function openAddVariant(baseProduct: Product) {
+    setEditing(null)
+    setPrefillBase(baseProduct)
+    setModal('add')
+  }
+
+  function openAdd() {
+    setEditing(null)
+    setPrefillBase(null)
+    setModal('add')
+  }
+
+  // Group products by base_name within each category
+  function groupByBase(prods: Product[]): Record<string, Product[]> {
+    return prods.reduce<Record<string, Product[]>>((acc, p) => {
+      const key = p.base_name.trim().toLowerCase()
+      if (!acc[key]) acc[key] = []
+      acc[key].push(p)
+      return acc
+    }, {})
+  }
+
   const grouped = debouncedQuery.trim()
     ? null
     : categories.reduce<Record<number, { category: Category; products: Product[] }>>((acc, cat) => {
@@ -89,15 +112,15 @@ export default function Catalogue() {
 
   const uncategorised = products.filter(p => !p.category_id)
 
+  // All base names for autocomplete in modal
+  const existingBaseNames = [...new Set(products.map(p => p.base_name))]
+
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="page-header">Product Catalogue</h1>
-        <button
-          onClick={() => { setEditing(null); setModal('add') }}
-          className="btn-primary flex items-center gap-2"
-        >
+        <button onClick={openAdd} className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Add Product
         </button>
@@ -122,14 +145,10 @@ export default function Catalogue() {
         )}
       </div>
 
-      {/* Category filter pills — hidden while searching */}
+      {/* Category filter pills */}
       {!debouncedQuery && (
         <div className="flex gap-2 flex-wrap">
-          <CategoryPill
-            label="All"
-            active={selectedCategory === null}
-            onClick={() => setSelectedCategory(null)}
-          />
+          <CategoryPill label="All" active={selectedCategory === null} onClick={() => setSelectedCategory(null)} />
           {categories.map(cat => (
             <CategoryPill
               key={cat.id}
@@ -145,16 +164,22 @@ export default function Catalogue() {
       {loading ? (
         <CatalogueSkeleton />
       ) : products.length === 0 ? (
-        <EmptyState query={debouncedQuery} onAdd={() => { setEditing(null); setModal('add') }} />
+        <EmptyState query={debouncedQuery} onAdd={openAdd} />
       ) : debouncedQuery.trim() ? (
-        /* Flat search results */
+        /* Search results — wrapped in card, grouped by base_name */
         <div className="card divide-y divide-stone-100">
-          {products.map(p => (
-            <ProductRow key={p.id} product={p} onEdit={openEdit} onDelete={setDeleteTarget} />
+          {Object.entries(groupByBase(products)).map(([, group]) => (
+            <BaseGroup
+              key={group[0].base_name}
+              products={group}
+              onEdit={openEdit}
+              onDelete={setDeleteTarget}
+              onAddVariant={openAddVariant}
+            />
           ))}
         </div>
       ) : (
-        /* Grouped by category */
+        /* Grouped by category, then by base_name */
         <div className="space-y-6">
           {grouped && Object.values(grouped).map(({ category, products: catProducts }) => (
             <div key={category.id}>
@@ -163,8 +188,14 @@ export default function Catalogue() {
                 <span className="font-normal text-stone-300">({catProducts.length})</span>
               </h2>
               <div className="card divide-y divide-stone-100">
-                {catProducts.map(p => (
-                  <ProductRow key={p.id} product={p} onEdit={openEdit} onDelete={setDeleteTarget} />
+                {Object.entries(groupByBase(catProducts)).map(([, group]) => (
+                  <BaseGroup
+                    key={group[0].base_name}
+                    products={group}
+                    onEdit={openEdit}
+                    onDelete={setDeleteTarget}
+                    onAddVariant={openAddVariant}
+                  />
                 ))}
               </div>
             </div>
@@ -175,8 +206,14 @@ export default function Catalogue() {
                 Uncategorised <span className="font-normal text-stone-300">({uncategorised.length})</span>
               </h2>
               <div className="card divide-y divide-stone-100">
-                {uncategorised.map(p => (
-                  <ProductRow key={p.id} product={p} onEdit={openEdit} onDelete={setDeleteTarget} />
+                {Object.entries(groupByBase(uncategorised)).map(([, group]) => (
+                  <BaseGroup
+                    key={group[0].base_name}
+                    products={group}
+                    onEdit={openEdit}
+                    onDelete={setDeleteTarget}
+                    onAddVariant={openAddVariant}
+                  />
                 ))}
               </div>
             </div>
@@ -188,9 +225,11 @@ export default function Catalogue() {
       {modal && (
         <ProductModal
           product={modal === 'edit' ? editing : null}
+          prefillProduct={prefillBase}
           categories={categories}
+          existingBaseNames={existingBaseNames}
           onSave={handleSave}
-          onClose={() => { setModal(null); setEditing(null) }}
+          onClose={() => { setModal(null); setEditing(null); setPrefillBase(null) }}
         />
       )}
 
@@ -221,43 +260,116 @@ export default function Catalogue() {
   )
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── BaseGroup — collapses variants under a base name ──────────────────────────
 
-function CategoryPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function BaseGroup({
+  products,
+  onEdit,
+  onDelete,
+  onAddVariant,
+}: {
+  products: Product[]
+  onEdit: (p: Product) => void
+  onDelete: (p: Product) => void
+  onAddVariant: (baseProduct: Product) => void
+}) {
+  const baseProduct = products.find(p => !p.variant_name && !p.brand_name) ?? products[0]
+  const baseName = baseProduct.base_name
+  const hasVariants = products.length > 1 || products[0].variant_name || products[0].brand_name
+  const [open, setOpen] = useState(true)
+
+  if (!hasVariants) {
+    // Single generic product — render flat with Add variant button
+    return (
+      <div className="flex items-center gap-2 px-4 py-2.5 group">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-stone-800 truncate">{baseName}</p>
+        </div>
+        <span className="text-xs text-stone-400 shrink-0">{baseProduct.unit}</span>
+        <button
+          onClick={() => onAddVariant(baseProduct)}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-brand-600 hover:bg-brand-50 transition-colors opacity-0 group-hover:opacity-100 touch-manipulation shrink-0"
+          title="Add variant"
+        >
+          <Plus className="w-3 h-3" /> Add variant
+        </button>
+        <div className="flex items-center gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
+          <button onClick={() => onEdit(baseProduct)} className="p-2 rounded-lg hover:bg-stone-100 transition-colors touch-manipulation" title="Edit">
+            <Pencil className="w-4 h-4 text-stone-500" />
+          </button>
+          <button onClick={() => onDelete(baseProduct)} className="p-2 rounded-lg hover:bg-red-50 transition-colors touch-manipulation" title="Delete">
+            <Trash2 className="w-4 h-4 text-red-400" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-        active
-          ? 'bg-brand-500 text-white border-brand-500'
-          : 'bg-white text-stone-600 border-stone-200 hover:border-brand-400 hover:text-brand-600'
-      }`}
-    >
-      {label}
-    </button>
+    <div>
+      {/* Base header row */}
+      <div className="flex items-center gap-2 px-4 py-2.5 group">
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="flex items-center gap-2 flex-1 min-w-0 text-left"
+        >
+          {open
+            ? <ChevronDown className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+            : <ChevronRight className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+          }
+          <span className="text-sm font-semibold text-stone-700">{baseName}</span>
+          <span className="text-xs text-stone-400">({products.length} variant{products.length !== 1 ? 's' : ''})</span>
+        </button>
+        <button
+          onClick={() => onAddVariant(baseProduct)}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-brand-600 hover:bg-brand-50 transition-colors opacity-0 group-hover:opacity-100 touch-manipulation shrink-0"
+          title="Add variant"
+        >
+          <Plus className="w-3 h-3" /> Add variant
+        </button>
+      </div>
+
+      {/* Variants */}
+      {open && (
+        <div className="border-t border-stone-50">
+          {products.map(p => (
+            <ProductRow
+              key={p.id}
+              product={p}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onAddVariant={onAddVariant}
+              indent
+            />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
+
+// ── ProductRow ────────────────────────────────────────────────────────────────
 
 function ProductRow({
   product,
   onEdit,
   onDelete,
+  indent = false,
 }: {
   product: Product
   onEdit: (p: Product) => void
   onDelete: (p: Product) => void
+  onAddVariant?: (baseProduct: Product) => void
+  indent?: boolean
 }) {
-  const displayName = product.display_name ?? product.base_name
+  const displayName = product.variant_name ?? product.brand_name ?? product.base_name
+  const subtitle = product.brand_name && product.variant_name ? product.brand_name : null
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 group">
+    <div className={`flex items-center gap-3 py-2.5 group ${indent ? 'pl-9 pr-4' : 'px-4'}`}>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-stone-800 truncate">{displayName}</p>
-        {(product.variant_name || product.brand_name) && (
-          <p className="text-xs text-stone-400 truncate">
-            {product.base_name}{product.variant_name ? ` · ${product.variant_name}` : ''}
-          </p>
-        )}
+        {subtitle && <p className="text-xs text-stone-400 truncate">{subtitle}</p>}
       </div>
       <span className="text-xs text-stone-400 shrink-0">{product.unit}</span>
       <div className="flex items-center gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
@@ -279,6 +391,25 @@ function ProductRow({
     </div>
   )
 }
+
+// ── CategoryPill ──────────────────────────────────────────────────────────────
+
+function CategoryPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+        active
+          ? 'bg-brand-500 text-white border-brand-500'
+          : 'bg-white text-stone-600 border-stone-200 hover:border-brand-400 hover:text-brand-600'
+      }`}
+    >
+      {label}
+    </button>
+  )
+}
+
+// ── EmptyState ────────────────────────────────────────────────────────────────
 
 function EmptyState({ query, onAdd }: { query: string; onAdd: () => void }) {
   return (

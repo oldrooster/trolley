@@ -1,12 +1,29 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   BookOpen, Search, X, Clock, Users, Pencil, Trash2,
-  Link, Sparkles, ChevronLeft, Upload
+  Link, Sparkles, ChevronLeft, Upload, CheckCircle, Package
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { Recipe, Product, Category } from '../lib/types'
 import { CardGridSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toast'
+
+function fuzzyMatchProduct(name: string, products: Product[]): Product | null {
+  const lower = name.toLowerCase()
+  let best: Product | null = null
+  let bestScore = 0
+  for (const p of products) {
+    for (const field of [p.base_name, p.variant_name, p.brand_name]) {
+      if (!field) continue
+      const fl = field.toLowerCase()
+      if (lower.includes(fl) || fl.includes(lower)) {
+        const score = fl.length
+        if (score > bestScore) { bestScore = score; best = p }
+      }
+    }
+  }
+  return bestScore >= 3 ? best : null
+}
 
 type View = 'list' | 'detail' | 'edit' | 'add-url' | 'add-ai'
 
@@ -359,6 +376,15 @@ function RecipeDetail({
 
 // ── Recipe form ───────────────────────────────────────────────────────────────
 
+interface RecipeIngredientDraft {
+  ingredient_name: string
+  quantity?: number
+  unit?: string
+  notes?: string
+  product_id?: number
+  create_product?: boolean  // add to catalogue if no match
+}
+
 interface RecipeFormData {
   name: string
   description?: string
@@ -367,7 +393,7 @@ interface RecipeFormData {
   servings?: number
   prep_time_mins?: number
   cook_time_mins?: number
-  ingredients: { ingredient_name: string; quantity?: number; unit?: string; notes?: string; product_id?: number }[]
+  ingredients: RecipeIngredientDraft[]
 }
 
 function RecipeForm({
@@ -379,7 +405,15 @@ function RecipeForm({
   onSave: (data: RecipeFormData) => Promise<void>
   onCancel: () => void
 }) {
-  const [form, setForm] = useState<RecipeFormData>({
+  function autoMatch(ings: RecipeIngredientDraft[]): RecipeIngredientDraft[] {
+    return ings.map(i => {
+      if (i.product_id) return i
+      const match = fuzzyMatchProduct(i.ingredient_name, products)
+      return { ...i, product_id: match?.id }
+    })
+  }
+
+  const [form, setForm] = useState<RecipeFormData>(() => ({
     name: initial?.name ?? '',
     description: initial?.description ?? '',
     method: initial?.method ?? '',
@@ -387,34 +421,45 @@ function RecipeForm({
     servings: initial?.servings ?? undefined,
     prep_time_mins: initial?.prep_time_mins ?? undefined,
     cook_time_mins: initial?.cook_time_mins ?? undefined,
-    ingredients: initial?.ingredients?.map(i => ({
+    ingredients: autoMatch(initial?.ingredients?.map(i => ({
       ingredient_name: i.ingredient_name,
       quantity: i.quantity ?? undefined,
       unit: i.unit ?? undefined,
       notes: i.notes ?? undefined,
       product_id: i.product_id ?? undefined,
-    })) ?? [],
-  })
+    })) ?? []),
+  }))
   const [saving, setSaving] = useState(false)
   const [ingInput, setIngInput] = useState('')
+  const [ingQty, setIngQty] = useState('')
+  const [ingUnit, setIngUnit] = useState('')
 
   function setField<K extends keyof RecipeFormData>(k: K, v: RecipeFormData[K]) {
     setForm(prev => ({ ...prev, [k]: v }))
   }
 
+  function updateIngredient(idx: number, patch: Partial<RecipeIngredientDraft>) {
+    setForm(prev => ({
+      ...prev,
+      ingredients: prev.ingredients.map((ing, i) => i === idx ? { ...ing, ...patch } : ing)
+    }))
+  }
+
   function addIngredient() {
     if (!ingInput.trim()) return
-    const match = products.find(p =>
-      (p.display_name ?? p.base_name).toLowerCase() === ingInput.toLowerCase()
-    )
+    const match = fuzzyMatchProduct(ingInput.trim(), products)
     setForm(prev => ({
       ...prev,
       ingredients: [...prev.ingredients, {
         ingredient_name: ingInput.trim(),
+        quantity: ingQty ? parseFloat(ingQty) : undefined,
+        unit: ingUnit || undefined,
         product_id: match?.id,
       }]
     }))
     setIngInput('')
+    setIngQty('')
+    setIngUnit('')
   }
 
   function removeIngredient(idx: number) {
@@ -472,25 +517,72 @@ function RecipeForm({
       {/* Ingredients */}
       <div className="card p-5 space-y-3">
         <h2 className="text-sm font-semibold text-stone-800">Ingredients</h2>
-        <div className="space-y-1">
-          {form.ingredients.map((ing, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="flex-1 text-sm text-stone-700 px-3 py-1.5 bg-stone-50 rounded-lg">{ing.ingredient_name}</span>
-              <button type="button" onClick={() => removeIngredient(i)} className="p-1.5 rounded-lg hover:bg-red-50">
-                <X className="w-3.5 h-3.5 text-red-400" />
-              </button>
-            </div>
-          ))}
+        <div className="divide-y divide-stone-100 -mx-5">
+          {form.ingredients.map((ing, i) => {
+            const matched = products.find(p => p.id === ing.product_id)
+            return (
+              <div key={i} className="px-5 py-2.5 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  {/* Name */}
+                  <span className="flex-1 text-sm font-medium text-stone-800">{ing.ingredient_name}</span>
+                  {/* Qty + unit */}
+                  <span className="text-xs text-stone-400 shrink-0">
+                    {ing.quantity != null ? ing.quantity : ''}
+                    {ing.unit ? ` ${ing.unit}` : ''}
+                  </span>
+                  <button type="button" onClick={() => removeIngredient(i)} className="p-1.5 rounded-lg hover:bg-red-50 shrink-0">
+                    <X className="w-3.5 h-3.5 text-red-400" />
+                  </button>
+                </div>
+                {/* Match status */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {matched ? (
+                    <span className="flex items-center gap-1 text-xs text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md">
+                      <CheckCircle className="w-3 h-3" />
+                      {matched.display_name ?? matched.base_name}
+                    </span>
+                  ) : (
+                    <label className="flex items-center gap-1.5 text-xs text-stone-400 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={ing.create_product ?? false}
+                        onChange={e => updateIngredient(i, { create_product: e.target.checked })}
+                        className="rounded text-brand-500"
+                      />
+                      <Package className="w-3 h-3" />
+                      <span className="text-stone-400">No catalogue match — add?</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
-        <div className="flex gap-2">
+        {/* Add row */}
+        <div className="flex gap-2 pt-1">
           <input
             className="input flex-1"
             value={ingInput}
             onChange={e => setIngInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addIngredient() } }}
-            placeholder="Add ingredient… (press Enter)"
+            placeholder="Ingredient name…"
           />
-          <button type="button" onClick={addIngredient} className="btn-secondary">Add</button>
+          <input
+            className="input w-16 text-center"
+            value={ingQty}
+            onChange={e => setIngQty(e.target.value)}
+            placeholder="Qty"
+            type="number"
+            min={0}
+            step="any"
+          />
+          <input
+            className="input w-16"
+            value={ingUnit}
+            onChange={e => setIngUnit(e.target.value)}
+            placeholder="Unit"
+          />
+          <button type="button" onClick={addIngredient} className="btn-secondary shrink-0">Add</button>
         </div>
       </div>
 
