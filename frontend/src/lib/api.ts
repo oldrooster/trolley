@@ -25,6 +25,7 @@ export const api = {
       const qs = params?.category_id ? `?category_id=${params.category_id}` : ''
       return request(`/catalogue${qs}`)
     },
+    get: (id: number) => request(`/catalogue/${id}`),
     search: (q: string) => request(`/catalogue/search?q=${encodeURIComponent(q)}`),
     create: (data: unknown) => request('/catalogue', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: number, data: unknown) => request(`/catalogue/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -99,5 +100,10 @@ export const api = {
     create: (data: unknown) => request('/family', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: number, data: unknown) => request(`/family/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: number) => request(`/family/${id}`, { method: 'DELETE' }),
+    uploadPhoto: (id: number, file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return request(`/family/${id}/photo`, { method: 'POST', body: form, headers: {} })
+    },
   },
 }

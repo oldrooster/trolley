@@ -288,10 +288,10 @@ function BaseGroup({
         <span className="text-xs text-stone-400 shrink-0">{baseProduct.unit}</span>
         <button
           onClick={() => onAddVariant(baseProduct)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-brand-600 hover:bg-brand-50 transition-colors opacity-0 group-hover:opacity-100 touch-manipulation shrink-0"
+          className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors opacity-0 group-hover:opacity-100 touch-manipulation shrink-0"
           title="Add variant"
         >
-          <Plus className="w-3 h-3" /> Add variant
+          <Plus className="w-3.5 h-3.5" />
         </button>
         <div className="flex items-center gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
           <button onClick={() => onEdit(baseProduct)} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors touch-manipulation" title="Edit">
@@ -322,10 +322,10 @@ function BaseGroup({
         </button>
         <button
           onClick={() => onAddVariant(baseProduct)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-brand-600 hover:bg-brand-50 transition-colors opacity-0 group-hover:opacity-100 touch-manipulation shrink-0"
+          className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors opacity-0 group-hover:opacity-100 touch-manipulation shrink-0"
           title="Add variant"
         >
-          <Plus className="w-3 h-3" /> Add variant
+          <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
 

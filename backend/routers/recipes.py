@@ -28,6 +28,9 @@ class IngredientIn(BaseModel):
     unit: str | None = None
     notes: str | None = None
     create_product: bool = False  # create a base catalogue entry if no match
+    category_id: int | None = None  # suggested category for new product
+    new_base_name: str | None = None    # user-supplied base name for new product
+    new_variant_name: str | None = None  # user-supplied variant name for new product
 
 
 class IngredientOut(BaseModel):
@@ -52,6 +55,7 @@ class RecipeCreate(BaseModel):
     cook_time_mins: int | None = None
     difficulty: str | None = None    # everyone / kid_friendly / teen / adult
     nutrition: str | None = None     # very_healthy / healthy / moderate / indulgent
+    is_quick: bool = False
     ingredients: list[IngredientIn] = []
 
 
@@ -65,6 +69,7 @@ class RecipeUpdate(BaseModel):
     cook_time_mins: int | None = None
     difficulty: str | None = None
     nutrition: str | None = None
+    is_quick: bool | None = None
     ingredients: list[IngredientIn] | None = None
 
 
@@ -80,6 +85,7 @@ class RecipeOut(BaseModel):
     cook_time_mins: int | None = None
     difficulty: str | None = None
     nutrition: str | None = None
+    is_quick: bool = False
     created_at: datetime
     ingredients: list[IngredientOut]
 
@@ -127,16 +133,17 @@ def save_ingredients(db: Session, recipe_id: int, ingredients: list[IngredientIn
     for ing in ingredients:
         product_id = ing.product_id
         if ing.create_product and not product_id:
-            base = ing.ingredient_name.strip().title()
+            base = (ing.new_base_name or ing.ingredient_name).strip().title()
+            variant = ing.new_variant_name.strip().title() if ing.new_variant_name else None
             existing = db.query(Product).filter(
                 Product.base_name == base,
-                Product.variant_name.is_(None),
+                Product.variant_name == variant if variant else Product.variant_name.is_(None),
                 Product.brand_name.is_(None),
             ).first()
             if existing:
                 product_id = existing.id
             else:
-                p = Product(base_name=base, unit=ing.unit or "each")
+                p = Product(base_name=base, variant_name=variant, unit=ing.unit or "each", category_id=ing.category_id)
                 db.add(p)
                 db.flush()
                 product_id = p.id

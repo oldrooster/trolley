@@ -62,6 +62,7 @@ export interface Recipe {
   cook_time_mins?: number
   difficulty?: RecipeDifficulty
   nutrition?: RecipeNutrition
+  is_quick?: boolean
   created_at: string
   ingredients: RecipeIngredient[]
 }
@@ -76,6 +77,7 @@ export interface WeeklyPlanMeal {
   day_hint?: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
   notes?: string
   assigned_member_ids?: number[]
+  cook_member_id?: number
 }
 
 export type AgeGroup = 'kid' | 'teen' | 'adult'
@@ -85,6 +87,7 @@ export interface FamilyMember {
   name: string
   age_group: AgeGroup
   emoji?: string
+  photo_path?: string
   active: boolean
 }
 

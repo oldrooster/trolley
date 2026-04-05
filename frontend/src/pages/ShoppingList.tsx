@@ -359,7 +359,7 @@ function AddItemRow({ onAdd }: { onAdd: (p: AddItemPayload) => Promise<void> }) 
                 {item.isVariant && <span className="text-stone-300 dark:text-stone-600 text-xs shrink-0">↳</span>}
                 <span className={item.isVariant ? 'text-stone-700 dark:text-stone-300' : 'font-medium'}>
                   {item.isVariant
-                    ? (item.product.variant_name ?? item.product.brand_name ?? item.product.base_name)
+                    ? (item.product.brand_name ?? (item.product.variant_name ? `${item.product.variant_name} ${item.product.base_name}` : item.product.base_name))
                     : item.product.base_name}
                 </span>
                 {!item.isVariant && item.product.variant_name && (

@@ -4,7 +4,7 @@ import { api } from '../lib/api'
 import type { WeeklyPlan, WeeklyPlanMeal, Recipe, FamilyMember } from '../lib/types'
 import { PlannerSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toast'
-import { DifficultyBadge, NutritionBadge } from './Recipes'
+import { DifficultyBadge, NutritionBadge, QuickBadge } from './Recipes'
 
 // ── Meal history panel ────────────────────────────────────────────────────────
 
@@ -175,6 +175,7 @@ export default function MealPlanner() {
     day_hint?: string
     notes?: string
     assigned_member_ids?: number[]
+    cook_member_id?: number
   }) {
     if (!plan) return
     if (modal?.meal) {
@@ -392,6 +393,18 @@ export default function MealPlanner() {
 
 const DEFAULT_EMOJIS: Record<string, string> = { kid: '🧒', teen: '👦', adult: '🧑' }
 
+function MemberAvatar({ member, size = 'sm' }: { member: FamilyMember; size?: 'sm' | 'chip' }) {
+  if (member.photo_path) {
+    // chip = inside day cell pill, sm = inside modal button
+    const cls = size === 'chip'
+      ? 'w-5 h-5 rounded-full object-cover inline-block'
+      : 'w-6 h-6 rounded-full object-cover inline-block'
+    return <img src={member.photo_path} alt={member.name} className={cls} />
+  }
+  const textSize = size === 'chip' ? 'text-sm' : 'text-base'
+  return <span className={textSize}>{member.emoji || DEFAULT_EMOJIS[member.age_group] || '🧑'}</span>
+}
+
 function DayCell({
   meals,
   mealType,
@@ -412,9 +425,9 @@ function DayCell({
   return (
     <div className="min-h-[64px] rounded-lg border border-stone-100 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/50 p-1 flex flex-col gap-1">
       {meals.map(meal => {
-        const assignedMembers = meal.assigned_member_ids?.length
-          ? members.filter(m => meal.assigned_member_ids!.includes(m.id))
-          : []
+        const cook = meal.cook_member_id
+          ? members.find(m => m.id === meal.cook_member_id)
+          : null
         return (
           <div
             key={meal.id}
@@ -435,13 +448,10 @@ function DayCell({
                 <X className="w-2.5 h-2.5" />
               </button>
             </div>
-            {assignedMembers.length > 0 && (
-              <div className="flex gap-0.5 flex-wrap">
-                {assignedMembers.map(m => (
-                  <span key={m.id} title={m.name} className="text-[10px] leading-none">
-                    {m.emoji || DEFAULT_EMOJIS[m.age_group] || '🧑'}
-                  </span>
-                ))}
+            {cook && (
+              <div className="flex items-center gap-0.5">
+                <MemberAvatar member={cook} size="chip" />
+                <span className="text-[11px] leading-none">👨‍🍳</span>
               </div>
             )}
           </div>
@@ -477,7 +487,7 @@ function MealModal({
     custom_name?: string
     day_hint?: string
     notes?: string
-    assigned_member_ids?: number[]
+    cook_member_id?: number
   }) => Promise<void>
   onClose: () => void
 }) {
@@ -491,7 +501,7 @@ function MealModal({
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [recipeSearch, setRecipeSearch] = useState('')
   const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(existing?.recipe_id ?? null)
-  const [assignedIds, setAssignedIds] = useState<number[]>(existing?.assigned_member_ids ?? [])
+  const [cookId, setCookId] = useState<number | null>(existing?.cook_member_id ?? null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -508,10 +518,6 @@ function MealModal({
     r.name.toLowerCase().includes(recipeSearch.toLowerCase())
   )
 
-  function toggleMember(id: number) {
-    setAssignedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-  }
-
   async function handleSave() {
     if (!name.trim() && !selectedRecipeId) return
     setSaving(true)
@@ -521,7 +527,7 @@ function MealModal({
         recipe_id: selectedRecipeId ?? undefined,
         custom_name: selectedRecipeId ? undefined : name.trim(),
         day_hint: selectedDay || undefined,
-        assigned_member_ids: assignedIds.length > 0 ? assignedIds : undefined,
+        cook_member_id: cookId ?? undefined,
       })
     } finally {
       setSaving(false)
@@ -589,6 +595,7 @@ function MealModal({
                     <span className="flex items-center justify-between gap-2">
                       <span className="truncate">{r.name}</span>
                       <span className="flex gap-1 shrink-0">
+                        {r.is_quick && <QuickBadge />}
                         {r.difficulty && <DifficultyBadge value={r.difficulty} />}
                         {r.nutrition && <NutritionBadge value={r.nutrition} />}
                       </span>
@@ -613,25 +620,25 @@ function MealModal({
             </div>
           )}
 
-          {/* Family member assignment */}
+          {/* Who's cooking */}
           {members.length > 0 && (
             <div>
-              <label className="label block mb-1.5">Who's eating?</label>
+              <label className="label block mb-1.5">Who's cooking?</label>
               <div className="flex flex-wrap gap-2">
                 {members.map(m => {
-                  const selected = assignedIds.includes(m.id)
+                  const selected = cookId === m.id
                   return (
                     <button
                       key={m.id}
                       type="button"
-                      onClick={() => toggleMember(m.id)}
+                      onClick={() => setCookId(selected ? null : m.id)}
                       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                         selected
-                          ? 'border-brand-400 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
+                          ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
                           : 'border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-600'
                       }`}
                     >
-                      <span>{m.emoji || DEFAULT_EMOJIS[m.age_group] || '🧑'}</span>
+                      <MemberAvatar member={m} />
                       {m.name}
                     </button>
                   )

@@ -67,6 +67,21 @@ def list_catalogue(
     return q.order_by(Product.base_name, Product.variant_name).offset(skip).limit(limit).all()
 
 
+# ── Single product ───────────────────────────────────────────────────────────
+
+@router.get("/catalogue/{product_id}", response_model=ProductOut)
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    product = (
+        db.query(Product)
+        .options(joinedload(Product.category))
+        .filter(Product.id == product_id)
+        .first()
+    )
+    if not product:
+        raise HTTPException(404, "Product not found")
+    return product
+
+
 # ── Create ────────────────────────────────────────────────────────────────────
 
 @router.post("/catalogue", response_model=ProductOut, status_code=201)

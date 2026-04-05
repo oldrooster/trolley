@@ -85,6 +85,7 @@ class Recipe(Base):
     cook_time_mins: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     difficulty: Mapped[Optional[str]] = mapped_column(String, nullable=True)   # everyone / kid_friendly / teen / adult
     nutrition: Mapped[Optional[str]] = mapped_column(String, nullable=True)    # very_healthy / healthy / moderate / indulgent
+    is_quick: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     ingredients: Mapped[list["RecipeIngredient"]] = relationship(
@@ -130,7 +131,8 @@ class WeeklyPlanMeal(Base):
     custom_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     day_hint: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # mon/tue/wed/thu/fri/sat/sun
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    assigned_member_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # [1, 2, 3]
+    assigned_member_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # [1, 2, 3] — who's eating
+    cook_member_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)     # who's cooking
 
     plan: Mapped["WeeklyPlan"] = relationship("WeeklyPlan", back_populates="meals")
     recipe: Mapped[Optional["Recipe"]] = relationship("Recipe")
@@ -182,4 +184,5 @@ class FamilyMember(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     age_group: Mapped[str] = mapped_column(String, nullable=False)  # kid / teen / adult
     emoji: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    photo_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)

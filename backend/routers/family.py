@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+import io
+import os
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -6,6 +10,8 @@ from database import get_db
 from models import FamilyMember
 
 router = APIRouter(prefix="/family", tags=["family"])
+
+IMAGES_DIR = os.getenv("IMAGES_DIR", "/data/images")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -28,6 +34,7 @@ class FamilyMemberOut(BaseModel):
     name: str
     age_group: str
     emoji: str | None = None
+    photo_path: str | None = None
     active: bool
 
     model_config = {"from_attributes": True}
@@ -71,3 +78,50 @@ def delete_member(member_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Member not found")
     db.delete(member)
     db.commit()
+
+
+@router.post("/{member_id}/photo", response_model=FamilyMemberOut)
+async def upload_photo(member_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    member = db.get(FamilyMember, member_id)
+    if not member:
+        raise HTTPException(404, "Member not found")
+
+    content = await file.read()
+
+    # Resize to thumbnail using Pillow
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(content))
+        img = img.convert("RGB")
+        img.thumbnail((200, 200), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        content = buf.getvalue()
+        ext = ".jpg"
+    except Exception:
+        ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
+
+    os.makedirs(IMAGES_DIR, exist_ok=True)
+    filename = f"member_{uuid.uuid4().hex}{ext}"
+    path = os.path.join(IMAGES_DIR, filename)
+    with open(path, "wb") as f:
+        f.write(content)
+
+    # Delete old photo
+    if member.photo_path:
+        old = os.path.join(IMAGES_DIR, os.path.basename(member.photo_path))
+        if os.path.exists(old):
+            os.remove(old)
+
+    member.photo_path = f"/api/family/photos/{filename}"
+    db.commit()
+    db.refresh(member)
+    return member
+
+
+@router.get("/photos/{filename}")
+def get_photo(filename: str):
+    path = os.path.join(IMAGES_DIR, filename)
+    if not os.path.exists(path):
+        raise HTTPException(404, "Photo not found")
+    return FileResponse(path)

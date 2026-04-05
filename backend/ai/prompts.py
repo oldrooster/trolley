@@ -11,13 +11,15 @@ Extract the recipe and return valid JSON matching this exact schema — return O
   "cook_time_mins": 30,
   "method": "Full step-by-step method, preserve numbered steps",
   "ingredients": [
-    {"ingredient_name": "flour", "quantity": 2.0, "unit": "cups", "notes": null}
+    {"ingredient_name": "flour", "quantity": 500.0, "unit": "g", "notes": null}
   ]
 }
 
 Rules:
 - quantities must be numbers (floats), not strings
-- unit should be a short string like "g", "kg", "cups", "tbsp", "tsp", "ml", "L", "each"
+- ALWAYS use metric units: g, kg, ml, L, cm — NEVER cups, oz, fl oz, lbs, inches, or other US customary units
+  - Convert if needed: 1 cup ≈ 240ml, 1 oz ≈ 28g, 1 lb ≈ 450g, 1 fl oz ≈ 30ml
+  - Exception: "each", "bunch", "slice", "sheet", "pinch", "sprig" are fine for count/describe quantities
 - If a value is unknown use null
 - Return ONLY valid JSON with no markdown fences"""
 
@@ -33,12 +35,14 @@ Return valid JSON matching this exact schema — return ONLY the JSON, nothing e
   "cook_time_mins": 30,
   "method": "Detailed numbered step-by-step cooking instructions",
   "ingredients": [
-    {"ingredient_name": "ingredient", "quantity": 1.0, "unit": "cup", "notes": null}
+    {"ingredient_name": "ingredient", "quantity": 200.0, "unit": "g", "notes": null}
   ]
 }
 
 Rules:
 - quantities must be numbers (floats)
+- ALWAYS use metric units: g, kg, ml, L, cm — NEVER cups, oz, fl oz, lbs, inches, or other US customary units
+  - Exception: "each", "bunch", "slice", "sheet", "pinch", "sprig" are fine for count/describe quantities
 - Keep it practical and achievable for a home cook
 - Return ONLY valid JSON with no markdown fences"""
 

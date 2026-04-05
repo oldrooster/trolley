@@ -13,11 +13,32 @@ from seed import run_seed
 from routers import health, catalogue, shopping_list, meal_planner, recipes, receipts, settings_router, insights, family
 
 
+def _migrate(db):
+    """Add columns that didn't exist in earlier schema versions."""
+    migrations = [
+        ("recipes",           "difficulty",           "TEXT"),
+        ("recipes",           "nutrition",            "TEXT"),
+        ("recipes",           "is_quick",             "INTEGER NOT NULL DEFAULT 0"),
+        ("weekly_plan_meals", "assigned_member_ids",  "TEXT"),
+        ("weekly_plan_meals", "cook_member_id",       "INTEGER"),
+        ("family_members",    "photo_path",            "TEXT"),
+    ]
+    for table, col, col_def in migrations:
+        try:
+            db.execute(
+                __import__("sqlalchemy").text(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
+            )
+            db.commit()
+        except Exception:
+            db.rollback()  # column already exists — safe to ignore
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     models.Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
+        _migrate(db)
         setup_fts(db)
         seeded = db.query(models.Product).count() == 0
         run_seed(db)

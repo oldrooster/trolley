@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle, XCircle, Loader, Users, Plus, Pencil, Trash2, X } from 'lucide-react'
+import { CheckCircle, XCircle, Loader, Users, Plus, Pencil, Trash2, X, Upload } from 'lucide-react'
 import { api } from '../lib/api'
 import type { FamilyMember, AgeGroup } from '../lib/types'
 
@@ -265,13 +265,18 @@ function FamilySection() {
     api.family.list().then(d => setMembers(d as FamilyMember[])).catch(console.error)
   }, [])
 
-  async function handleSave(data: { name: string; age_group: AgeGroup; emoji: string }) {
+  async function handleSave(data: { name: string; age_group: AgeGroup; emoji: string }, photoFile?: File) {
+    let member: FamilyMember
     if (editing) {
-      const updated = await api.family.update(editing.id, data) as FamilyMember
-      setMembers(prev => prev.map(m => m.id === editing.id ? updated : m))
+      member = await api.family.update(editing.id, data) as FamilyMember
+      setMembers(prev => prev.map(m => m.id === editing.id ? member : m))
     } else {
-      const created = await api.family.create(data) as FamilyMember
-      setMembers(prev => [...prev, created])
+      member = await api.family.create(data) as FamilyMember
+      setMembers(prev => [...prev, member])
+    }
+    if (photoFile) {
+      const updated = await api.family.uploadPhoto(member.id, photoFile) as FamilyMember
+      setMembers(prev => prev.map(m => m.id === updated.id ? updated : m))
     }
     setShowForm(false)
     setEditing(null)
@@ -314,7 +319,11 @@ function FamilySection() {
         <div className="space-y-2">
           {members.map(m => (
             <div key={m.id} className="flex items-center gap-3 py-2 group">
-              <span className="text-xl w-8 text-center">{m.emoji || DEFAULT_EMOJIS[m.age_group as AgeGroup]}</span>
+              {m.photo_path ? (
+                <img src={m.photo_path} alt={m.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+              ) : (
+                <span className="text-xl w-8 text-center shrink-0">{m.emoji || DEFAULT_EMOJIS[m.age_group as AgeGroup]}</span>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-stone-800 dark:text-stone-100">{m.name}</p>
               </div>
@@ -354,20 +363,31 @@ function MemberForm({
   onCancel,
 }: {
   initial: FamilyMember | null
-  onSave: (data: { name: string; age_group: AgeGroup; emoji: string }) => Promise<void>
+  onSave: (data: { name: string; age_group: AgeGroup; emoji: string }, photoFile?: File) => Promise<void>
   onCancel: () => void
 }) {
   const [name, setName] = useState(initial?.name ?? '')
   const [ageGroup, setAgeGroup] = useState<AgeGroup>(initial?.age_group as AgeGroup ?? 'adult')
   const [emoji, setEmoji] = useState(initial?.emoji ?? '')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(initial?.photo_path ?? null)
   const [saving, setSaving] = useState(false)
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoFile(file)
+    const reader = new FileReader()
+    reader.onload = ev => setPhotoPreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
     setSaving(true)
     try {
-      await onSave({ name: name.trim(), age_group: ageGroup, emoji: emoji.trim() || DEFAULT_EMOJIS[ageGroup] })
+      await onSave({ name: name.trim(), age_group: ageGroup, emoji: emoji.trim() || DEFAULT_EMOJIS[ageGroup] }, photoFile ?? undefined)
     } finally {
       setSaving(false)
     }
@@ -390,18 +410,35 @@ function MemberForm({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label block mb-1">Name</label>
-          <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sophie" autoFocus />
-        </div>
-        <div>
-          <label className="label block mb-1">Age group</label>
-          <select className="input" value={ageGroup} onChange={e => setAgeGroup(e.target.value as AgeGroup)}>
-            <option value="kid">Kid</option>
-            <option value="teen">Teen</option>
-            <option value="adult">Adult</option>
-          </select>
+      <div className="flex items-start gap-3">
+        {/* Photo thumbnail */}
+        <label className="cursor-pointer shrink-0 group relative">
+          <div className="w-14 h-14 rounded-full overflow-hidden bg-stone-100 dark:bg-stone-700 flex items-center justify-center border-2 border-dashed border-stone-300 dark:border-stone-600 group-hover:border-brand-400 transition-colors">
+            {photoPreview ? (
+              <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-2xl">{emoji || DEFAULT_EMOJIS[ageGroup]}</span>
+            )}
+          </div>
+          <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Upload className="w-4 h-4 text-white" />
+          </div>
+          <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+        </label>
+
+        <div className="flex-1 grid grid-cols-2 gap-3">
+          <div>
+            <label className="label block mb-1">Name</label>
+            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sophie" autoFocus />
+          </div>
+          <div>
+            <label className="label block mb-1">Age group</label>
+            <select className="input" value={ageGroup} onChange={e => setAgeGroup(e.target.value as AgeGroup)}>
+              <option value="kid">Kid</option>
+              <option value="teen">Teen</option>
+              <option value="adult">Adult</option>
+            </select>
+          </div>
         </div>
       </div>
 

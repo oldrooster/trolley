@@ -41,6 +41,14 @@ export function NutritionBadge({ value }: { value: RecipeNutrition }) {
     </span>
   )
 }
+
+export function QuickBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-700">
+      ⚡ Quick
+    </span>
+  )
+}
 import { CardGridSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toast'
 
@@ -100,20 +108,35 @@ export default function Recipes() {
     setView('detail')
   }
 
+  function preparePayload(data: RecipeFormData) {
+    return {
+      ...data,
+      ingredients: data.ingredients.map(({ guessed_category_id, new_base_name, new_variant_name, ...ing }) => ({
+        ...ing,
+        category_id: guessed_category_id ?? undefined,
+        new_base_name: new_base_name || undefined,
+        new_variant_name: new_variant_name || undefined,
+      })),
+    }
+  }
+
   async function handleSave(data: RecipeFormData, editingId?: number) {
+    const payload = preparePayload(data)
     if (editingId) {
-      const updated = await api.recipes.update(editingId, data) as Recipe
+      const updated = await api.recipes.update(editingId, payload) as Recipe
       setRecipes(prev => prev.map(r => r.id === editingId ? updated : r))
       setSelected(updated)
       setView('detail')
       success('Recipe saved')
     } else {
-      const created = await api.recipes.create(data) as Recipe
+      const created = await api.recipes.create(payload) as Recipe
       setRecipes(prev => [...prev, created])
       setSelected(created)
       setView('detail')
       success('Recipe added')
     }
+    // Reload products so any newly created catalogue entries are available next edit
+    api.catalogue.list().then(d => setProducts(d as Product[])).catch(() => {})
   }
 
   async function handleDelete(recipe: Recipe) {
@@ -126,6 +149,12 @@ export default function Recipes() {
 
   async function handleImageUpload(recipeId: number, file: File) {
     const updated = await api.recipes.uploadImage(recipeId, file) as Recipe
+    setSelected(updated)
+    setRecipes(prev => prev.map(r => r.id === recipeId ? updated : r))
+  }
+
+  async function handleGenerateImage(recipeId: number) {
+    const updated = await api.recipes.generateImage(recipeId) as Recipe
     setSelected(updated)
     setRecipes(prev => prev.map(r => r.id === recipeId ? updated : r))
   }
@@ -189,6 +218,7 @@ export default function Recipes() {
         onEdit={() => setView('edit')}
         onDelete={() => handleDelete(selected)}
         onImageUpload={(f) => handleImageUpload(selected.id, f)}
+        onGenerateImage={() => handleGenerateImage(selected.id)}
       />
     )
   }
@@ -270,8 +300,9 @@ function RecipeCard({ recipe, onClick }: { recipe: Recipe; onClick: () => void }
             </span>
           )}
         </div>
-        {(recipe.difficulty || recipe.nutrition) && (
+        {(recipe.difficulty || recipe.nutrition || recipe.is_quick) && (
           <div className="flex flex-wrap gap-1 mt-2">
+            {recipe.is_quick && <QuickBadge />}
             {recipe.difficulty && <DifficultyBadge value={recipe.difficulty} />}
             {recipe.nutrition && <NutritionBadge value={recipe.nutrition} />}
           </div>
@@ -284,15 +315,22 @@ function RecipeCard({ recipe, onClick }: { recipe: Recipe; onClick: () => void }
 // ── Recipe detail ─────────────────────────────────────────────────────────────
 
 function RecipeDetail({
-  recipe, onBack, onEdit, onDelete, onImageUpload
+  recipe, onBack, onEdit, onDelete, onImageUpload, onGenerateImage
 }: {
   recipe: Recipe
   onBack: () => void
   onEdit: () => void
   onDelete: () => void
   onImageUpload: (f: File) => void
+  onGenerateImage: () => Promise<void>
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [generatingImage, setGeneratingImage] = useState(false)
+
+  async function handleGenerateImage() {
+    setGeneratingImage(true)
+    try { await onGenerateImage() } finally { setGeneratingImage(false) }
+  }
   const time = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0)
 
   return (
@@ -315,16 +353,28 @@ function RecipeDetail({
         {recipe.image_path ? (
           <img src={recipe.image_path} alt={recipe.name} className="w-full h-64 object-cover rounded-xl" />
         ) : (
-          <div className="w-full h-64 bg-gradient-to-br from-brand-50 to-brand-100 rounded-xl flex items-center justify-center">
+          <div className="w-full h-64 bg-gradient-to-br from-brand-50 to-brand-100 dark:from-brand-900/20 dark:to-brand-800/20 rounded-xl flex items-center justify-center">
             <BookOpen className="w-12 h-12 text-brand-300" />
           </div>
         )}
-        <label className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer bg-black/20 rounded-xl">
-          <div className="bg-white/90 dark:bg-stone-800/90 rounded-lg px-3 py-2 flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
-            <Upload className="w-4 h-4" /> Change image
-          </div>
-          <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && onImageUpload(e.target.files[0])} />
-        </label>
+        {/* Hover overlay: upload always available; generate only when no image */}
+        <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-xl">
+          <label className="cursor-pointer bg-white/90 dark:bg-stone-800/90 rounded-lg px-3 py-2 flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700">
+            <Upload className="w-4 h-4" /> {recipe.image_path ? 'Change' : 'Upload'}
+            <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && onImageUpload(e.target.files[0])} />
+          </label>
+          {!recipe.image_path && (
+            <button
+              type="button"
+              onClick={handleGenerateImage}
+              disabled={generatingImage}
+              className="bg-brand-600/90 hover:bg-brand-600 rounded-lg px-3 py-2 flex items-center gap-2 text-sm font-medium text-white disabled:opacity-60"
+            >
+              <Sparkles className="w-4 h-4" />
+              {generatingImage ? 'Generating…' : 'Generate'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Meta */}
@@ -355,8 +405,9 @@ function RecipeDetail({
         )}
       </div>
 
-      {(recipe.difficulty || recipe.nutrition) && (
+      {(recipe.difficulty || recipe.nutrition || recipe.is_quick) && (
         <div className="flex flex-wrap gap-2">
+          {recipe.is_quick && <QuickBadge />}
           {recipe.difficulty && <DifficultyBadge value={recipe.difficulty} />}
           {recipe.nutrition && <NutritionBadge value={recipe.nutrition} />}
         </div>
@@ -432,6 +483,9 @@ interface RecipeIngredientDraft {
   notes?: string
   product_id?: number
   create_product?: boolean  // add to catalogue if no match
+  guessed_category_id?: number  // category from auto-match, preserved for new-product creation
+  new_base_name?: string       // user-declared base name for new catalogue product
+  new_variant_name?: string    // user-declared variant name for new catalogue product
 }
 
 interface RecipeFormData {
@@ -444,6 +498,7 @@ interface RecipeFormData {
   cook_time_mins?: number
   difficulty?: RecipeDifficulty
   nutrition?: RecipeNutrition
+  is_quick: boolean
   ingredients: RecipeIngredientDraft[]
 }
 
@@ -460,7 +515,7 @@ function RecipeForm({
     return ings.map(i => {
       if (i.product_id) return i
       const match = fuzzyMatchProduct(i.ingredient_name, products)
-      return { ...i, product_id: match?.id }
+      return { ...i, product_id: match?.id, guessed_category_id: match?.category_id ?? undefined }
     })
   }
 
@@ -474,6 +529,7 @@ function RecipeForm({
     cook_time_mins: initial?.cook_time_mins ?? undefined,
     difficulty: initial?.difficulty ?? undefined,
     nutrition: initial?.nutrition ?? undefined,
+    is_quick: initial?.is_quick ?? false,
     ingredients: autoMatch(initial?.ingredients?.map(i => ({
       ingredient_name: i.ingredient_name,
       quantity: i.quantity ?? undefined,
@@ -486,6 +542,37 @@ function RecipeForm({
   const [ingInput, setIngInput] = useState('')
   const [ingQty, setIngQty] = useState('')
   const [ingUnit, setIngUnit] = useState('')
+  const [overrideIdx, setOverrideIdx] = useState<number | null>(null)
+  const [overrideSearch, setOverrideSearch] = useState('')
+  const [overrideResults, setOverrideResults] = useState<Product[]>([])
+  // Products found via search that may not be in the base (limited) products list
+  const [extraProducts, setExtraProducts] = useState<Map<number, Product>>(new Map())
+
+  // On mount, fetch any ingredient products that aren't in the base list
+  useEffect(() => {
+    const missingIds = form.ingredients
+      .map(i => i.product_id)
+      .filter((id): id is number => id != null && !products.find(p => p.id === id))
+    if (missingIds.length === 0) return
+    Promise.all(missingIds.map(id => api.catalogue.get(id) as Promise<Product>))
+      .then(fetched => {
+        setExtraProducts(prev => {
+          const next = new Map(prev)
+          fetched.forEach(p => next.set(p.id, p))
+          return next
+        })
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const [editIngIdx, setEditIngIdx] = useState<number | null>(null)
+  const [editIngName, setEditIngName] = useState('')
+  const [editIngQty, setEditIngQty] = useState('')
+  const [editIngUnit, setEditIngUnit] = useState('')
+
+  function findProduct(id: number): Product | undefined {
+    return products.find(p => p.id === id) ?? extraProducts.get(id)
+  }
 
   function setField<K extends keyof RecipeFormData>(k: K, v: RecipeFormData[K]) {
     setForm(prev => ({ ...prev, [k]: v }))
@@ -508,6 +595,7 @@ function RecipeForm({
         quantity: ingQty ? parseFloat(ingQty) : undefined,
         unit: ingUnit || undefined,
         product_id: match?.id,
+        guessed_category_id: match?.category_id ?? undefined,
       }]
     }))
     setIngInput('')
@@ -517,6 +605,32 @@ function RecipeForm({
 
   function removeIngredient(idx: number) {
     setForm(prev => ({ ...prev, ingredients: prev.ingredients.filter((_, i) => i !== idx) }))
+  }
+
+  function startEditIng(idx: number) {
+    const ing = form.ingredients[idx]
+    setEditIngIdx(idx)
+    setEditIngName(ing.ingredient_name)
+    setEditIngQty(ing.quantity != null ? String(ing.quantity) : '')
+    setEditIngUnit(ing.unit ?? '')
+  }
+
+  function commitEditIng(idx: number) {
+    if (!editIngName.trim()) { setEditIngIdx(null); return }
+    const newName = editIngName.trim()
+    const newQty = editIngQty ? parseFloat(editIngQty) : undefined
+    const newUnit = editIngUnit.trim() || undefined
+    // Re-match only if name changed
+    const ing = form.ingredients[idx]
+    const nameChanged = newName !== ing.ingredient_name
+    const newMatch = nameChanged ? fuzzyMatchProduct(newName, products) : null
+    updateIngredient(idx, {
+      ingredient_name: newName,
+      quantity: newQty,
+      unit: newUnit,
+      ...(nameChanged && { product_id: newMatch?.id, guessed_category_id: newMatch?.category_id ?? undefined }),
+    })
+    setEditIngIdx(null)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -566,6 +680,32 @@ function RecipeForm({
           <input className="input" type="url" value={form.source_url ?? ''} onChange={e => setField('source_url', e.target.value)} placeholder="https://…" />
         </div>
 
+        {/* Quick meal toggle */}
+        <button
+          type="button"
+          onClick={() => setField('is_quick', !form.is_quick)}
+          className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl border-2 text-left transition-colors ${
+            form.is_quick
+              ? 'border-rose-400 bg-rose-50 dark:bg-rose-900/20'
+              : 'border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600'
+          }`}
+        >
+          <span className="text-xl">⚡</span>
+          <div className="flex-1">
+            <p className={`text-sm font-medium ${form.is_quick ? 'text-rose-700 dark:text-rose-300' : 'text-stone-700 dark:text-stone-300'}`}>
+              Quick meal
+            </p>
+            <p className={`text-xs mt-0.5 ${form.is_quick ? 'text-rose-500 dark:text-rose-400' : 'text-stone-400'}`}>
+              Ready in a flash — minimal prep, great for busy nights
+            </p>
+          </div>
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+            form.is_quick ? 'bg-rose-500 border-rose-500' : 'border-stone-300 dark:border-stone-600'
+          }`}>
+            {form.is_quick && <span className="text-white text-[10px]">✓</span>}
+          </div>
+        </button>
+
         {/* Difficulty */}
         <div>
           <label className="label block mb-1.5">Who's it for?</label>
@@ -614,39 +754,193 @@ function RecipeForm({
         <h2 className="text-sm font-semibold text-stone-800 dark:text-stone-200">Ingredients</h2>
         <div className="divide-y divide-stone-100 dark:divide-stone-800 -mx-5">
           {form.ingredients.map((ing, i) => {
-            const matched = products.find(p => p.id === ing.product_id)
+            const matched = ing.product_id != null ? findProduct(ing.product_id) : undefined
             return (
               <div key={i} className="px-5 py-2.5 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  {/* Name */}
-                  <span className="flex-1 text-sm font-medium text-stone-800 dark:text-stone-100">{ing.ingredient_name}</span>
-                  {/* Qty + unit */}
-                  <span className="text-xs text-stone-400 shrink-0">
-                    {ing.quantity != null ? ing.quantity : ''}
-                    {ing.unit ? ` ${ing.unit}` : ''}
-                  </span>
-                  <button type="button" onClick={() => removeIngredient(i)} className="p-1.5 rounded-lg hover:bg-red-50 shrink-0">
-                    <X className="w-3.5 h-3.5 text-red-400" />
-                  </button>
-                </div>
+                {editIngIdx === i ? (
+                  /* ── Inline edit mode ── */
+                  <div className="flex items-center gap-2">
+                    <input
+                      autoFocus
+                      className="input flex-1 text-sm py-1"
+                      value={editIngName}
+                      onChange={e => setEditIngName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); commitEditIng(i) }
+                        if (e.key === 'Escape') setEditIngIdx(null)
+                      }}
+                      placeholder="Ingredient name"
+                    />
+                    <input
+                      className="input w-16 text-center text-sm py-1"
+                      value={editIngQty}
+                      onChange={e => setEditIngQty(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); commitEditIng(i) }
+                        if (e.key === 'Escape') setEditIngIdx(null)
+                      }}
+                      placeholder="Qty"
+                      type="number"
+                      min={0}
+                      step="any"
+                    />
+                    <input
+                      className="input w-16 text-sm py-1"
+                      value={editIngUnit}
+                      onChange={e => setEditIngUnit(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); commitEditIng(i) }
+                        if (e.key === 'Escape') setEditIngIdx(null)
+                      }}
+                      placeholder="Unit"
+                    />
+                    <button type="button" onClick={() => commitEditIng(i)} className="p-1.5 rounded-lg bg-brand-50 dark:bg-brand-900/30 hover:bg-brand-100 shrink-0">
+                      <CheckCircle className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    </button>
+                    <button type="button" onClick={() => setEditIngIdx(null)} className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 shrink-0">
+                      <X className="w-3.5 h-3.5 text-stone-400" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 group">
+                    {/* Name */}
+                    <span className="flex-1 text-sm font-medium text-stone-800 dark:text-stone-100">{ing.ingredient_name}</span>
+                    {/* Qty + unit */}
+                    <span className="text-xs text-stone-400 shrink-0">
+                      {ing.quantity != null ? ing.quantity : ''}
+                      {ing.unit ? ` ${ing.unit}` : ''}
+                    </span>
+                    <button type="button" onClick={() => startEditIng(i)} className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Pencil className="w-3 h-3 text-stone-400" />
+                    </button>
+                    <button type="button" onClick={() => removeIngredient(i)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0">
+                      <X className="w-3.5 h-3.5 text-red-400" />
+                    </button>
+                  </div>
+                )}
                 {/* Match status */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  {matched ? (
-                    <span className="flex items-center gap-1 text-xs text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md">
-                      <CheckCircle className="w-3 h-3" />
-                      {matched.display_name ?? matched.base_name}
-                    </span>
-                  ) : (
-                    <label className="flex items-center gap-1.5 text-xs text-stone-400 cursor-pointer">
+                  {matched && overrideIdx !== i ? (
+                    <div className="flex items-center gap-1">
+                      <span className="flex items-center gap-1.5 text-xs text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-md">
+                        <CheckCircle className="w-3 h-3 shrink-0" />
+                        {matched.category?.icon && <span>{matched.category.icon}</span>}
+                        <span>{matched.base_name}</span>
+                        {matched.variant_name && <span className="opacity-75">· {matched.variant_name}</span>}
+                        {matched.brand_name && <span className="opacity-60 font-normal">({matched.brand_name})</span>}
+                      </span>
+                      <button
+                        type="button"
+                        title="Change match"
+                        onClick={() => { setOverrideIdx(i); setOverrideSearch(''); setOverrideResults([]) }}
+                        className="p-0.5 rounded hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Clear match"
+                        onClick={() => updateIngredient(i, { product_id: undefined, guessed_category_id: matched?.category_id ?? undefined })}
+                        className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-stone-400 hover:text-red-500"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : overrideIdx === i ? (
+                    <div className="relative flex-1 min-w-0">
                       <input
-                        type="checkbox"
-                        checked={ing.create_product ?? false}
-                        onChange={e => updateIngredient(i, { create_product: e.target.checked })}
-                        className="rounded text-brand-500"
+                        autoFocus
+                        className="input w-full text-xs py-1"
+                        value={overrideSearch}
+                        onChange={e => {
+                          const q = e.target.value
+                          setOverrideSearch(q)
+                          if (q.trim().length >= 2) {
+                            api.catalogue.search(q.trim()).then(r => setOverrideResults(r as Product[])).catch(() => {})
+                          } else {
+                            setOverrideResults([])
+                          }
+                        }}
+                        onKeyDown={e => { if (e.key === 'Escape') setOverrideIdx(null) }}
+                        placeholder="Search catalogue…"
                       />
-                      <Package className="w-3 h-3" />
-                      <span className="text-stone-400">No catalogue match — add?</span>
-                    </label>
+                      {overrideSearch.trim().length >= 2 && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg z-20 max-h-40 overflow-y-auto">
+                          {overrideResults.length > 0 ? overrideResults.map(p => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                className="w-full text-left px-3 py-1.5 text-xs hover:bg-brand-50 dark:hover:bg-brand-900/20 text-stone-700 dark:text-stone-300"
+                                onMouseDown={() => {
+                                  updateIngredient(i, {
+                                    product_id: p.id,
+                                    guessed_category_id: p.category_id ?? ing.guessed_category_id,
+                                  })
+                                  setExtraProducts(prev => new Map(prev).set(p.id, p))
+                                  setOverrideIdx(null)
+                                  setOverrideResults([])
+                                }}
+                              >
+                                <span className="flex items-center gap-1.5 flex-wrap">
+                                  {p.category?.icon && <span>{p.category.icon}</span>}
+                                  <span>{p.base_name}</span>
+                                  {p.variant_name && <span className="opacity-75">· {p.variant_name}</span>}
+                                  {p.brand_name && <span className="opacity-60">({p.brand_name})</span>}
+                                </span>
+                              </button>
+                            )) : (
+                            <div className="px-3 py-2 text-xs text-stone-400">No matches found</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <label className="flex items-center gap-1.5 text-xs text-stone-400 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={ing.create_product ?? false}
+                            onChange={e => updateIngredient(i, {
+                              create_product: e.target.checked,
+                              new_base_name: e.target.checked ? (ing.new_base_name || ing.ingredient_name) : undefined,
+                              new_variant_name: e.target.checked ? ing.new_variant_name : undefined,
+                            })}
+                            className="rounded text-brand-500"
+                          />
+                          <Package className="w-3 h-3" />
+                          <span>No match — add new</span>
+                        </label>
+                        <span className="text-xs text-stone-300 dark:text-stone-600">or</span>
+                        <button
+                          type="button"
+                          onClick={() => { setOverrideIdx(i); setOverrideSearch(''); setOverrideResults([]) }}
+                          className="flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 hover:underline"
+                        >
+                          <Search className="w-3 h-3" /> search catalogue
+                        </button>
+                      </div>
+                      {ing.create_product && (
+                        <div className="flex gap-2 pl-5">
+                          <div className="flex-1">
+                            <input
+                              className="input text-xs py-1 w-full"
+                              value={ing.new_base_name ?? ''}
+                              onChange={e => updateIngredient(i, { new_base_name: e.target.value })}
+                              placeholder="Base name (e.g. Tomatoes)"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <input
+                              className="input text-xs py-1 w-full"
+                              value={ing.new_variant_name ?? ''}
+                              onChange={e => updateIngredient(i, { new_variant_name: e.target.value })}
+                              placeholder="Variant (e.g. Canned) — optional"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
