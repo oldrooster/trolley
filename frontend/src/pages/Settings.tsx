@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle, XCircle, Loader } from 'lucide-react'
+import { CheckCircle, XCircle, Loader, Users, Plus, Pencil, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
+import type { FamilyMember, AgeGroup } from '../lib/types'
 
 type Provider = 'vertex' | 'gemini' | 'openai' | 'anthropic'
 
@@ -94,7 +95,7 @@ export default function Settings() {
       {/* Provider selection */}
       <div className="card p-5 space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-stone-800">AI Provider</h2>
+          <h2 className="text-sm font-semibold text-stone-800 dark:text-stone-200">AI Provider</h2>
           <p className="text-xs text-stone-400 mt-0.5">
             Powers recipe parsing, receipt extraction, and image generation.
           </p>
@@ -110,7 +111,7 @@ export default function Settings() {
                 onClick={() => !isDisabled && set('ai_provider', p.value)}
                 disabled={isDisabled}
                 className={`relative text-left px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all
-                  ${isActive ? 'border-brand-500 bg-brand-50 text-brand-800' : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300'}
+                  ${isActive ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-200' : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:border-stone-300 dark:hover:border-stone-600'}
                   ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 {p.label}
@@ -127,13 +128,13 @@ export default function Settings() {
         {/* Vertex AI fields */}
         {provider === 'vertex' && (
           <div className="space-y-3 pt-1">
-            <div className="bg-stone-50 rounded-xl p-3 text-xs text-stone-500 space-y-1">
-              <p className="font-medium text-stone-600">Setup steps:</p>
+            <div className="bg-stone-50 dark:bg-stone-800 rounded-xl p-3 text-xs text-stone-500 dark:text-stone-400 space-y-1">
+              <p className="font-medium text-stone-600 dark:text-stone-300">Setup steps:</p>
               <ol className="list-decimal list-inside space-y-1">
                 <li>Create a GCP project and enable the Vertex AI API</li>
-                <li>Create a service account with <code className="bg-white px-1 py-0.5 rounded">Vertex AI User</code> role</li>
+                <li>Create a service account with <code className="bg-white dark:bg-stone-700 px-1 py-0.5 rounded">Vertex AI User</code> role</li>
                 <li>Download the JSON key and mount it in your Docker container</li>
-                <li>Set the path below to where it's mounted (e.g. <code className="bg-white px-1 py-0.5 rounded">/run/secrets/gcp.json</code>)</li>
+                <li>Set the path below to where it's mounted (e.g. <code className="bg-white dark:bg-stone-700 px-1 py-0.5 rounded">/run/secrets/gcp.json</code>)</li>
               </ol>
             </div>
             <div>
@@ -169,8 +170,8 @@ export default function Settings() {
         {/* Gemini API key fields */}
         {provider === 'gemini' && (
           <div className="space-y-3 pt-1">
-            <div className="bg-stone-50 rounded-xl p-3 text-xs text-stone-500">
-              <p className="font-medium text-stone-600 mb-1">Setup:</p>
+            <div className="bg-stone-50 dark:bg-stone-800 rounded-xl p-3 text-xs text-stone-500 dark:text-stone-400">
+              <p className="font-medium text-stone-600 dark:text-stone-300 mb-1">Setup:</p>
               <p>Get a free API key from <span className="text-brand-600">Google AI Studio</span>. Supports all Gemini models. Note: image generation requires Vertex AI.</p>
             </div>
             <div>
@@ -218,8 +219,8 @@ export default function Settings() {
 
       {/* Docker compose hint */}
       <div className="card p-4 space-y-2">
-        <h3 className="text-xs font-semibold text-stone-700">docker-compose.yml — environment variables</h3>
-        <pre className="text-xs text-stone-500 bg-stone-50 rounded-lg p-3 overflow-x-auto whitespace-pre">{`environment:
+        <h3 className="text-xs font-semibold text-stone-700 dark:text-stone-300">docker-compose.yml — environment variables</h3>
+        <pre className="text-xs text-stone-500 dark:text-stone-400 bg-stone-50 dark:bg-stone-800 rounded-lg p-3 overflow-x-auto whitespace-pre">{`environment:
   AI_PROVIDER: ${provider}
 ${provider === 'vertex' ? `  VERTEX_PROJECT_ID: your-project-id
   VERTEX_LOCATION: us-central1
@@ -232,6 +233,204 @@ provider === 'gemini' ? `  GEMINI_API_KEY: your-api-key` : ''}`}
           Environment variables are used as defaults. Values saved above take priority.
         </p>
       </div>
+
+      <FamilySection />
     </div>
+  )
+}
+
+
+// ── Family section ────────────────────────────────────────────────────────────
+
+const AGE_GROUP_LABELS: Record<AgeGroup, string> = {
+  kid: 'Kid',
+  teen: 'Teen',
+  adult: 'Adult',
+}
+
+const AGE_GROUP_COLORS: Record<AgeGroup, string> = {
+  kid: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700',
+  teen: 'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-700',
+  adult: 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-700',
+}
+
+const DEFAULT_EMOJIS: Record<AgeGroup, string> = { kid: '🧒', teen: '👦', adult: '🧑' }
+
+function FamilySection() {
+  const [members, setMembers] = useState<FamilyMember[]>([])
+  const [editing, setEditing] = useState<FamilyMember | null>(null)
+  const [showForm, setShowForm] = useState(false)
+
+  useEffect(() => {
+    api.family.list().then(d => setMembers(d as FamilyMember[])).catch(console.error)
+  }, [])
+
+  async function handleSave(data: { name: string; age_group: AgeGroup; emoji: string }) {
+    if (editing) {
+      const updated = await api.family.update(editing.id, data) as FamilyMember
+      setMembers(prev => prev.map(m => m.id === editing.id ? updated : m))
+    } else {
+      const created = await api.family.create(data) as FamilyMember
+      setMembers(prev => [...prev, created])
+    }
+    setShowForm(false)
+    setEditing(null)
+  }
+
+  async function handleDelete(id: number) {
+    await api.family.delete(id)
+    setMembers(prev => prev.filter(m => m.id !== id))
+  }
+
+  function openEdit(m: FamilyMember) {
+    setEditing(m)
+    setShowForm(true)
+  }
+
+  function openAdd() {
+    setEditing(null)
+    setShowForm(true)
+  }
+
+  return (
+    <div className="card p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-brand-500" />
+          <h2 className="text-sm font-semibold text-stone-800 dark:text-stone-200">Family members</h2>
+        </div>
+        <button onClick={openAdd} className="btn-ghost flex items-center gap-1.5 text-xs">
+          <Plus className="w-3.5 h-3.5" /> Add
+        </button>
+      </div>
+
+      {members.length === 0 && !showForm && (
+        <p className="text-xs text-stone-400 text-center py-3">
+          No family members yet. Add them to assign meals and set recipe difficulty.
+        </p>
+      )}
+
+      {members.length > 0 && (
+        <div className="space-y-2">
+          {members.map(m => (
+            <div key={m.id} className="flex items-center gap-3 py-2 group">
+              <span className="text-xl w-8 text-center">{m.emoji || DEFAULT_EMOJIS[m.age_group as AgeGroup]}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-stone-800 dark:text-stone-100">{m.name}</p>
+              </div>
+              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${AGE_GROUP_COLORS[m.age_group as AgeGroup]}`}>
+                {AGE_GROUP_LABELS[m.age_group as AgeGroup]}
+              </span>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => openEdit(m)} className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors">
+                  <Pencil className="w-3.5 h-3.5 text-stone-400" />
+                </button>
+                <button onClick={() => handleDelete(m.id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && (
+        <MemberForm
+          initial={editing}
+          onSave={handleSave}
+          onCancel={() => { setShowForm(false); setEditing(null) }}
+        />
+      )}
+    </div>
+  )
+}
+
+
+// ── Member add/edit form ──────────────────────────────────────────────────────
+
+function MemberForm({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial: FamilyMember | null
+  onSave: (data: { name: string; age_group: AgeGroup; emoji: string }) => Promise<void>
+  onCancel: () => void
+}) {
+  const [name, setName] = useState(initial?.name ?? '')
+  const [ageGroup, setAgeGroup] = useState<AgeGroup>(initial?.age_group as AgeGroup ?? 'adult')
+  const [emoji, setEmoji] = useState(initial?.emoji ?? '')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+    setSaving(true)
+    try {
+      await onSave({ name: name.trim(), age_group: ageGroup, emoji: emoji.trim() || DEFAULT_EMOJIS[ageGroup] })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const EMOJI_SUGGESTIONS: Record<AgeGroup, string[]> = {
+    kid:   ['🧒', '👧', '👦', '🧒‍♂️', '🧒‍♀️', '🐣'],
+    teen:  ['👦', '👧', '🧑', '🧑‍🎤', '🧑‍💻', '🙋'],
+    adult: ['🧑', '👨', '👩', '🧔', '👴', '👵'],
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="border-t border-stone-100 dark:border-stone-800 pt-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wide">
+          {initial ? 'Edit member' : 'New member'}
+        </p>
+        <button type="button" onClick={onCancel} className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700">
+          <X className="w-3.5 h-3.5 text-stone-400" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label block mb-1">Name</label>
+          <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sophie" autoFocus />
+        </div>
+        <div>
+          <label className="label block mb-1">Age group</label>
+          <select className="input" value={ageGroup} onChange={e => setAgeGroup(e.target.value as AgeGroup)}>
+            <option value="kid">Kid</option>
+            <option value="teen">Teen</option>
+            <option value="adult">Adult</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="label block mb-1.5">Emoji</label>
+        <div className="flex gap-2 flex-wrap">
+          {EMOJI_SUGGESTIONS[ageGroup].map(e => (
+            <button
+              key={e}
+              type="button"
+              onClick={() => setEmoji(e)}
+              className={`text-xl w-9 h-9 rounded-lg border transition-colors ${
+                (emoji || DEFAULT_EMOJIS[ageGroup]) === e
+                  ? 'border-brand-400 bg-brand-50 dark:bg-brand-900/20'
+                  : 'border-stone-200 dark:border-stone-700 hover:border-brand-300'
+              }`}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <button type="button" onClick={onCancel} className="btn-secondary flex-1 text-sm">Cancel</button>
+        <button type="submit" disabled={saving || !name.trim()} className="btn-primary flex-1 text-sm">
+          {saving ? 'Saving…' : (initial ? 'Save' : 'Add member')}
+        </button>
+      </div>
+    </form>
   )
 }

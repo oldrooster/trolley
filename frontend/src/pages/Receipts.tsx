@@ -222,7 +222,7 @@ export default function Receipts() {
         <h1 className="page-header">Receipts</h1>
 
         <label className={`card border-2 border-dashed flex flex-col items-center justify-center py-12 gap-3 text-center cursor-pointer transition-colors ${
-          uploading ? 'border-brand-300 bg-brand-50' : 'border-stone-200 hover:border-brand-300 hover:bg-stone-50'
+          uploading ? 'border-brand-300 bg-brand-50' : 'border-stone-200 dark:border-stone-700 hover:border-brand-300 hover:bg-stone-50 dark:hover:bg-stone-800'
         }`}>
           {uploading ? (
             <>
@@ -232,11 +232,11 @@ export default function Receipts() {
             </>
           ) : (
             <>
-              <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-stone-100 dark:bg-stone-700 rounded-xl flex items-center justify-center">
                 <Upload className="w-5 h-5 text-stone-400" />
               </div>
               <div>
-                <p className="text-sm font-medium text-stone-600">Upload a receipt</p>
+                <p className="text-sm font-medium text-stone-600 dark:text-stone-400">Upload a receipt</p>
                 <p className="text-xs text-stone-400 mt-0.5">Woolworths, New World, Pak'n'Save — JPEG, PNG or PDF</p>
               </div>
               <span className="btn-primary text-sm">Choose file</span>
@@ -291,7 +291,7 @@ export default function Receipts() {
     return (
       <div className="space-y-5 max-w-2xl">
         <div className="flex items-center gap-3">
-          <button onClick={() => setView('list')} className="p-2 rounded-lg hover:bg-stone-100">
+          <button onClick={() => setView('list')} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700">
             <ChevronLeft className="w-4 h-4 text-stone-600" />
           </button>
           <h1 className="page-header flex-1">Receipt detail</h1>
@@ -307,11 +307,11 @@ export default function Receipts() {
             <div className="card p-4 grid grid-cols-3 gap-4 text-sm">
               <div>
                 <p className="label mb-0.5">Store</p>
-                <p className="font-medium text-stone-800">{detailReceipt.store_name ?? '—'}</p>
+                <p className="font-medium text-stone-800 dark:text-stone-100">{detailReceipt.store_name ?? '—'}</p>
               </div>
               <div>
                 <p className="label mb-0.5">Date</p>
-                <p className="font-medium text-stone-800">
+                <p className="font-medium text-stone-800 dark:text-stone-100">
                   {detailReceipt.purchase_date
                     ? new Date(detailReceipt.purchase_date).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })
                     : '—'}
@@ -319,7 +319,7 @@ export default function Receipts() {
               </div>
               <div>
                 <p className="label mb-0.5">Total</p>
-                <p className="font-medium text-stone-800">
+                <p className="font-medium text-stone-800 dark:text-stone-100">
                   {detailReceipt.total_amount ? `$${detailReceipt.total_amount.toFixed(2)}` : '—'}
                 </p>
               </div>
@@ -343,11 +343,11 @@ export default function Receipts() {
               {detailReceipt.items.length === 0 ? (
                 <div className="card p-6 text-center text-stone-400 text-sm">No items recorded.</div>
               ) : (
-                <div className="card divide-y divide-stone-100">
+                <div className="card divide-y divide-stone-100 dark:divide-stone-800">
                   {detailReceipt.items.map(item => (
                     <div key={item.id} className="flex items-center gap-3 px-4 py-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-stone-800 truncate">
+                        <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">
                           {item.product_name ?? item.raw_name}
                         </p>
                         {item.product_name && item.product_name !== item.raw_name && (
@@ -358,7 +358,7 @@ export default function Receipts() {
                         {item.quantity && item.quantity !== 1 && <span>×{item.quantity}</span>}
                         {item.unit_price && <span>${item.unit_price.toFixed(2)}</span>}
                         {item.total_price && item.total_price !== item.unit_price && (
-                          <span className="font-medium text-stone-700">${item.total_price.toFixed(2)}</span>
+                          <span className="font-medium text-stone-700 dark:text-stone-300">${item.total_price.toFixed(2)}</span>
                         )}
                         {item.product_id && (
                           <CheckCircle className="w-3.5 h-3.5 text-brand-400" />
@@ -386,7 +386,7 @@ export default function Receipts() {
       <div className="space-y-5 max-w-2xl">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => setView('list')} className="p-2 rounded-lg hover:bg-stone-100">
+          <button onClick={() => setView('list')} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700">
             <ChevronLeft className="w-4 h-4 text-stone-600" />
           </button>
           <div className="flex-1">
@@ -436,7 +436,7 @@ export default function Receipts() {
               </span>
             )}
             {skipped.length > 0 && (
-              <span className="px-3 py-1 rounded-full bg-stone-100 text-stone-500 text-xs font-medium">
+              <span className="px-3 py-1 rounded-full bg-stone-100 dark:bg-stone-700 text-stone-500 dark:text-stone-400 text-xs font-medium">
                 {skipped.length} skipped
               </span>
             )}
@@ -452,7 +452,7 @@ export default function Receipts() {
         {extraction.items.length === 0 ? (
           <div className="card p-6 text-center">
             <AlertCircle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-            <p className="text-sm text-stone-600 font-medium">No items were extracted</p>
+            <p className="text-sm text-stone-600 dark:text-stone-400 font-medium">No items were extracted</p>
             <p className="text-xs text-stone-400 mt-1">AI may not be configured or couldn't read the receipt. Save the metadata above.</p>
           </div>
         ) : (
@@ -507,13 +507,13 @@ function ReceiptRow({
     <div className="flex items-center gap-3 px-4 py-3 group">
       <button
         onClick={onView}
-        className="w-9 h-9 rounded-lg bg-stone-100 flex items-center justify-center shrink-0 hover:bg-brand-50 transition-colors"
+        className="w-9 h-9 rounded-lg bg-stone-100 dark:bg-stone-700 flex items-center justify-center shrink-0 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors"
         title="View receipt"
       >
         <ReceiptIcon className="w-4 h-4 text-stone-500" />
       </button>
       <button onClick={onView} className="flex-1 min-w-0 text-left">
-        <p className="text-sm font-medium text-stone-800 truncate">
+        <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">
           {receipt.store_name ?? 'Unknown store'}
         </p>
         <p className="text-xs text-stone-400">
@@ -522,11 +522,11 @@ function ReceiptRow({
       </button>
       <div className="flex items-center gap-2 shrink-0">
         {receipt.total_amount && (
-          <span className="text-sm font-medium text-stone-700">${receipt.total_amount.toFixed(2)}</span>
+          <span className="text-sm font-medium text-stone-700 dark:text-stone-300">${receipt.total_amount.toFixed(2)}</span>
         )}
         <button
           onClick={onView}
-          className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-stone-100 transition-all"
+          className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-stone-100 dark:hover:bg-stone-700 transition-all"
           title="View"
         >
           <Eye className="w-3.5 h-3.5 text-stone-400" />
@@ -534,7 +534,7 @@ function ReceiptRow({
         {confirmDel ? (
           <div className="flex items-center gap-1">
             <button onClick={onDelete} className="text-xs text-red-500 font-medium px-2 py-1 rounded hover:bg-red-50">Delete</button>
-            <button onClick={() => setConfirmDel(false)} className="text-xs text-stone-400 px-2 py-1 rounded hover:bg-stone-100">Cancel</button>
+            <button onClick={() => setConfirmDel(false)} className="text-xs text-stone-400 px-2 py-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700">Cancel</button>
           </div>
         ) : (
           <button
@@ -574,7 +574,7 @@ function ReviewItemRow({
         <button
           onClick={() => onChange({ skip: !item.skip })}
           className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-            item.skip ? 'bg-stone-200 border-stone-300' : 'border-brand-400 bg-white hover:bg-brand-50'
+            item.skip ? 'bg-stone-200 dark:bg-stone-700 border-stone-300 dark:border-stone-600' : 'border-brand-400 bg-white dark:bg-stone-800 hover:bg-brand-50 dark:hover:bg-brand-900/20'
           }`}
           title={item.skip ? 'Include' : 'Skip'}
         >
@@ -585,12 +585,12 @@ function ReviewItemRow({
         <div className="flex-1 min-w-0">
           {/* Raw name + price */}
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-stone-800 truncate">{item.raw_name}</p>
+            <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">{item.raw_name}</p>
             <div className="flex items-center gap-2 shrink-0 text-xs text-stone-500">
               {item.quantity && item.quantity !== 1 && <span>×{item.quantity}</span>}
               {item.unit_price && <span>${item.unit_price.toFixed(2)}</span>}
               {item.total_price && item.total_price !== item.unit_price && (
-                <span className="font-medium text-stone-700">${item.total_price.toFixed(2)}</span>
+                <span className="font-medium text-stone-700 dark:text-stone-300">${item.total_price.toFixed(2)}</span>
               )}
             </div>
           </div>
@@ -609,7 +609,7 @@ function ReviewItemRow({
                   </div>
                   <button
                     onClick={() => { onChange({ overriding_match: true, create_product: true }); setExpanded(true) }}
-                    className="text-xs text-stone-400 hover:text-stone-600 underline"
+                    className="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline"
                   >
                     Override
                   </button>
@@ -624,14 +624,14 @@ function ReviewItemRow({
                   </div>
                   <button
                     onClick={() => setExpanded(v => !v)}
-                    className="text-xs text-stone-400 hover:text-stone-600 flex items-center gap-0.5"
+                    className="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 flex items-center gap-0.5"
                   >
                     Edit {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                   </button>
                   {item.overriding_match && (
                     <button
                       onClick={() => onChange({ overriding_match: false, create_product: false, product_id: item.matched_product_id })}
-                      className="text-xs text-stone-400 hover:text-stone-600 underline"
+                      className="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline"
                     >
                       Revert to match
                     </button>
@@ -660,8 +660,8 @@ function ReviewItemRow({
 
       {/* Expanded catalogue form */}
       {expanded && !item.skip && (
-        <div className="border-t border-stone-100 px-4 py-3 bg-stone-50 space-y-2">
-          <p className="text-xs font-medium text-stone-500 uppercase tracking-wide mb-2">Catalogue entry</p>
+        <div className="border-t border-stone-100 dark:border-stone-800 px-4 py-3 bg-stone-50 dark:bg-stone-800 space-y-2">
+          <p className="text-xs font-medium text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">Catalogue entry</p>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-stone-400 block mb-0.5">Base name</label>

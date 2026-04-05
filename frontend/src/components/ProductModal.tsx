@@ -89,13 +89,13 @@ export default function ProductModal({ product, prefillProduct, categories, exis
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl w-full max-w-md shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-stone-100">
-          <h2 className="text-base font-semibold text-stone-900">
+        <div className="flex items-center justify-between p-5 border-b border-stone-100 dark:border-stone-800">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
             {product ? 'Edit Product' : prefillProduct ? `Add variant of ${prefillProduct.base_name}` : 'Add Product'}
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-stone-100 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors">
             <X className="w-4 h-4 text-stone-500" />
           </button>
         </div>
@@ -119,12 +119,12 @@ export default function ProductModal({ product, prefillProduct, categories, exis
             <p className="text-xs text-stone-400 mt-1">The generic product name — shared across variants</p>
 
             {showSuggestions && (
-              <div className="absolute left-0 right-0 top-full mt-1 z-10 bg-white border border-stone-200 rounded-lg shadow-lg overflow-hidden">
+              <div className="absolute left-0 right-0 top-full mt-1 z-10 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg overflow-hidden">
                 {baseNameSuggestions.map(name => (
                   <button
                     key={name}
                     type="button"
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-stone-50 transition-colors"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
                     onMouseDown={() => selectBaseName(name)}
                   >
                     {name}
@@ -135,7 +135,7 @@ export default function ProductModal({ product, prefillProduct, categories, exis
           </div>
 
           <div>
-            <label className="label block mb-1">Variant <span className="text-stone-300">(optional)</span></label>
+            <label className="label block mb-1">Variant <span className="text-stone-300 dark:text-stone-600">(optional)</span></label>
             <input
               id="variant-input"
               className="input"
@@ -147,7 +147,7 @@ export default function ProductModal({ product, prefillProduct, categories, exis
           </div>
 
           <div>
-            <label className="label block mb-1">Brand / Full product name <span className="text-stone-300">(optional)</span></label>
+            <label className="label block mb-1">Brand / Full product name <span className="text-stone-300 dark:text-stone-600">(optional)</span></label>
             <input
               className="input"
               value={form.brand_name ?? ''}

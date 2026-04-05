@@ -138,7 +138,7 @@ export default function Catalogue() {
         {query && (
           <button
             onClick={() => setQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-stone-100"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-stone-100 dark:hover:bg-stone-700"
           >
             <X className="w-3.5 h-3.5 text-stone-400" />
           </button>
@@ -236,11 +236,11 @@ export default function Catalogue() {
       {/* Delete confirmation */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
             <div>
-              <h2 className="text-base font-semibold text-stone-900">Delete product?</h2>
-              <p className="text-sm text-stone-500 mt-1">
-                <span className="font-medium text-stone-700">{deleteTarget.display_name ?? deleteTarget.base_name}</span> will be permanently removed from the catalogue.
+              <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">Delete product?</h2>
+              <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
+                <span className="font-medium text-stone-700 dark:text-stone-300">{deleteTarget.display_name ?? deleteTarget.base_name}</span> will be permanently removed from the catalogue.
               </p>
             </div>
             <div className="flex gap-3">
@@ -283,7 +283,7 @@ function BaseGroup({
     return (
       <div className="flex items-center gap-2 px-4 py-2.5 group">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-stone-800 truncate">{baseName}</p>
+          <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">{baseName}</p>
         </div>
         <span className="text-xs text-stone-400 shrink-0">{baseProduct.unit}</span>
         <button
@@ -294,7 +294,7 @@ function BaseGroup({
           <Plus className="w-3 h-3" /> Add variant
         </button>
         <div className="flex items-center gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => onEdit(baseProduct)} className="p-2 rounded-lg hover:bg-stone-100 transition-colors touch-manipulation" title="Edit">
+          <button onClick={() => onEdit(baseProduct)} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors touch-manipulation" title="Edit">
             <Pencil className="w-4 h-4 text-stone-500" />
           </button>
           <button onClick={() => onDelete(baseProduct)} className="p-2 rounded-lg hover:bg-red-50 transition-colors touch-manipulation" title="Delete">
@@ -317,7 +317,7 @@ function BaseGroup({
             ? <ChevronDown className="w-3.5 h-3.5 text-stone-400 shrink-0" />
             : <ChevronRight className="w-3.5 h-3.5 text-stone-400 shrink-0" />
           }
-          <span className="text-sm font-semibold text-stone-700">{baseName}</span>
+          <span className="text-sm font-semibold text-stone-700 dark:text-stone-300">{baseName}</span>
           <span className="text-xs text-stone-400">({products.length} variant{products.length !== 1 ? 's' : ''})</span>
         </button>
         <button
@@ -331,7 +331,7 @@ function BaseGroup({
 
       {/* Variants */}
       {open && (
-        <div className="border-t border-stone-50">
+        <div className="border-t border-stone-50 dark:border-stone-800">
           {products.map(p => (
             <ProductRow
               key={p.id}
@@ -368,14 +368,14 @@ function ProductRow({
   return (
     <div className={`flex items-center gap-3 py-2.5 group ${indent ? 'pl-9 pr-4' : 'px-4'}`}>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-stone-800 truncate">{displayName}</p>
+        <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">{displayName}</p>
         {subtitle && <p className="text-xs text-stone-400 truncate">{subtitle}</p>}
       </div>
       <span className="text-xs text-stone-400 shrink-0">{product.unit}</span>
       <div className="flex items-center gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
         <button
           onClick={() => onEdit(product)}
-          className="p-2 rounded-lg hover:bg-stone-100 transition-colors touch-manipulation"
+          className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors touch-manipulation"
           title="Edit"
         >
           <Pencil className="w-4 h-4 text-stone-500" />
@@ -401,7 +401,7 @@ function CategoryPill({ label, active, onClick }: { label: string; active: boole
       className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
         active
           ? 'bg-brand-500 text-white border-brand-500'
-          : 'bg-white text-stone-600 border-stone-200 hover:border-brand-400 hover:text-brand-600'
+          : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:border-brand-400 hover:text-brand-600'
       }`}
     >
       {label}

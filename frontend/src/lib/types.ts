@@ -47,6 +47,9 @@ export interface RecipeIngredient {
   notes?: string
 }
 
+export type RecipeDifficulty = 'everyone' | 'kid_friendly' | 'teen' | 'adult'
+export type RecipeNutrition = 'very_healthy' | 'healthy' | 'moderate' | 'indulgent'
+
 export interface Recipe {
   id: number
   name: string
@@ -57,6 +60,8 @@ export interface Recipe {
   servings?: number
   prep_time_mins?: number
   cook_time_mins?: number
+  difficulty?: RecipeDifficulty
+  nutrition?: RecipeNutrition
   created_at: string
   ingredients: RecipeIngredient[]
 }
@@ -70,6 +75,17 @@ export interface WeeklyPlanMeal {
   custom_name?: string
   day_hint?: 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
   notes?: string
+  assigned_member_ids?: number[]
+}
+
+export type AgeGroup = 'kid' | 'teen' | 'adult'
+
+export interface FamilyMember {
+  id: number
+  name: string
+  age_group: AgeGroup
+  emoji?: string
+  active: boolean
 }
 
 export interface WeeklyPlan {

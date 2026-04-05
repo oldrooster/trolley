@@ -50,6 +50,8 @@ class RecipeCreate(BaseModel):
     servings: int | None = None
     prep_time_mins: int | None = None
     cook_time_mins: int | None = None
+    difficulty: str | None = None    # everyone / kid_friendly / teen / adult
+    nutrition: str | None = None     # very_healthy / healthy / moderate / indulgent
     ingredients: list[IngredientIn] = []
 
 
@@ -61,6 +63,8 @@ class RecipeUpdate(BaseModel):
     servings: int | None = None
     prep_time_mins: int | None = None
     cook_time_mins: int | None = None
+    difficulty: str | None = None
+    nutrition: str | None = None
     ingredients: list[IngredientIn] | None = None
 
 
@@ -74,6 +78,8 @@ class RecipeOut(BaseModel):
     servings: int | None = None
     prep_time_mins: int | None = None
     cook_time_mins: int | None = None
+    difficulty: str | None = None
+    nutrition: str | None = None
     created_at: datetime
     ingredients: list[IngredientOut]
 

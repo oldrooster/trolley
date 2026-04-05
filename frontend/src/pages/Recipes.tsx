@@ -4,7 +4,43 @@ import {
   Link, Sparkles, ChevronLeft, Upload, CheckCircle, Package
 } from 'lucide-react'
 import { api } from '../lib/api'
-import type { Recipe, Product, Category } from '../lib/types'
+import type { Recipe, Product, Category, RecipeDifficulty, RecipeNutrition } from '../lib/types'
+
+// ── Difficulty + nutrition config ─────────────────────────────────────────────
+
+export const DIFFICULTY_OPTIONS: { value: RecipeDifficulty; label: string; emoji: string; color: string }[] = [
+  { value: 'everyone',    label: 'Everyone',     emoji: '👨‍👩‍👧', color: 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 border-brand-200 dark:border-brand-700' },
+  { value: 'kid_friendly',label: 'Kid friendly', emoji: '🧒',    color: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700' },
+  { value: 'teen',        label: 'Teen+',        emoji: '👦',    color: 'bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-700' },
+  { value: 'adult',       label: 'Adults',       emoji: '🧑',    color: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700' },
+]
+
+export const NUTRITION_OPTIONS: { value: RecipeNutrition; label: string; emoji: string; color: string }[] = [
+  { value: 'very_healthy', label: 'Very healthy', emoji: '🥗', color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700' },
+  { value: 'healthy',      label: 'Healthy',      emoji: '🥦', color: 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700' },
+  { value: 'moderate',     label: 'Balanced',     emoji: '⚖️', color: 'bg-stone-50 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border-stone-200 dark:border-stone-700' },
+  { value: 'indulgent',    label: 'Treat',        emoji: '🍕', color: 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700' },
+]
+
+export function DifficultyBadge({ value }: { value: RecipeDifficulty }) {
+  const opt = DIFFICULTY_OPTIONS.find(o => o.value === value)
+  if (!opt) return null
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${opt.color}`}>
+      {opt.emoji} {opt.label}
+    </span>
+  )
+}
+
+export function NutritionBadge({ value }: { value: RecipeNutrition }) {
+  const opt = NUTRITION_OPTIONS.find(o => o.value === value)
+  if (!opt) return null
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${opt.color}`}>
+      {opt.emoji} {opt.label}
+    </span>
+  )
+}
 import { CardGridSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toast'
 
@@ -119,7 +155,7 @@ export default function Recipes() {
             onChange={e => setQuery(e.target.value)}
           />
           {query && (
-            <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-stone-100">
+            <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-stone-100 dark:hover:bg-stone-700">
               <X className="w-3.5 h-3.5 text-stone-400" />
             </button>
           )}
@@ -218,7 +254,7 @@ function RecipeCard({ recipe, onClick }: { recipe: Recipe; onClick: () => void }
         </div>
       )}
       <div className="p-4">
-        <p className="text-sm font-semibold text-stone-800 group-hover:text-brand-600 transition-colors">{recipe.name}</p>
+        <p className="text-sm font-semibold text-stone-800 dark:text-stone-100 group-hover:text-brand-600 transition-colors">{recipe.name}</p>
         {recipe.description && (
           <p className="text-xs text-stone-400 mt-0.5 line-clamp-2">{recipe.description}</p>
         )}
@@ -234,6 +270,12 @@ function RecipeCard({ recipe, onClick }: { recipe: Recipe; onClick: () => void }
             </span>
           )}
         </div>
+        {(recipe.difficulty || recipe.nutrition) && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {recipe.difficulty && <DifficultyBadge value={recipe.difficulty} />}
+            {recipe.nutrition && <NutritionBadge value={recipe.nutrition} />}
+          </div>
+        )}
       </div>
     </button>
   )
@@ -256,7 +298,7 @@ function RecipeDetail({
   return (
     <div className="space-y-5 max-w-2xl">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="p-2 rounded-lg hover:bg-stone-100 transition-colors">
+        <button onClick={onBack} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors">
           <ChevronLeft className="w-4 h-4 text-stone-600" />
         </button>
         <h1 className="page-header flex-1 truncate">{recipe.name}</h1>
@@ -278,7 +320,7 @@ function RecipeDetail({
           </div>
         )}
         <label className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer bg-black/20 rounded-xl">
-          <div className="bg-white/90 rounded-lg px-3 py-2 flex items-center gap-2 text-sm font-medium text-stone-700">
+          <div className="bg-white/90 dark:bg-stone-800/90 rounded-lg px-3 py-2 flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300">
             <Upload className="w-4 h-4" /> Change image
           </div>
           <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && onImageUpload(e.target.files[0])} />
@@ -290,42 +332,49 @@ function RecipeDetail({
         {recipe.prep_time_mins && (
           <div className="text-center">
             <p className="label">Prep</p>
-            <p className="text-sm font-medium text-stone-700">{recipe.prep_time_mins} min</p>
+            <p className="text-sm font-medium text-stone-700 dark:text-stone-300">{recipe.prep_time_mins} min</p>
           </div>
         )}
         {recipe.cook_time_mins && (
           <div className="text-center">
             <p className="label">Cook</p>
-            <p className="text-sm font-medium text-stone-700">{recipe.cook_time_mins} min</p>
+            <p className="text-sm font-medium text-stone-700 dark:text-stone-300">{recipe.cook_time_mins} min</p>
           </div>
         )}
         {time > 0 && (
           <div className="text-center">
             <p className="label">Total</p>
-            <p className="text-sm font-medium text-stone-700">{time} min</p>
+            <p className="text-sm font-medium text-stone-700 dark:text-stone-300">{time} min</p>
           </div>
         )}
         {recipe.servings && (
           <div className="text-center">
             <p className="label">Serves</p>
-            <p className="text-sm font-medium text-stone-700">{recipe.servings}</p>
+            <p className="text-sm font-medium text-stone-700 dark:text-stone-300">{recipe.servings}</p>
           </div>
         )}
       </div>
 
+      {(recipe.difficulty || recipe.nutrition) && (
+        <div className="flex flex-wrap gap-2">
+          {recipe.difficulty && <DifficultyBadge value={recipe.difficulty} />}
+          {recipe.nutrition && <NutritionBadge value={recipe.nutrition} />}
+        </div>
+      )}
+
       {recipe.description && (
-        <p className="text-sm text-stone-600 leading-relaxed">{recipe.description}</p>
+        <p className="text-sm text-stone-600 dark:text-stone-400 leading-relaxed">{recipe.description}</p>
       )}
 
       {/* Ingredients */}
       {recipe.ingredients?.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-stone-800 mb-2">Ingredients</h2>
-          <div className="card divide-y divide-stone-100">
+          <h2 className="text-sm font-semibold text-stone-800 dark:text-stone-200 mb-2">Ingredients</h2>
+          <div className="card divide-y divide-stone-100 dark:divide-stone-800">
             {recipe.ingredients.map(ing => (
               <div key={ing.id} className="flex items-center gap-3 px-4 py-2.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0" />
-                <span className="text-sm text-stone-700 flex-1">{ing.ingredient_name}</span>
+                <span className="text-sm text-stone-700 dark:text-stone-300 flex-1">{ing.ingredient_name}</span>
                 {(ing.quantity || ing.unit) && (
                   <span className="text-xs text-stone-400">
                     {ing.quantity}{ing.unit ? ` ${ing.unit}` : ''}
@@ -340,8 +389,8 @@ function RecipeDetail({
       {/* Method */}
       {recipe.method && (
         <div>
-          <h2 className="text-sm font-semibold text-stone-800 mb-2">Method</h2>
-          <div className="card p-4 text-sm text-stone-700 leading-relaxed whitespace-pre-wrap">
+          <h2 className="text-sm font-semibold text-stone-800 dark:text-stone-200 mb-2">Method</h2>
+          <div className="card p-4 text-sm text-stone-700 dark:text-stone-300 leading-relaxed whitespace-pre-wrap">
             {recipe.method}
           </div>
         </div>
@@ -356,10 +405,10 @@ function RecipeDetail({
 
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
             <div>
-              <h2 className="text-base font-semibold text-stone-900">Delete recipe?</h2>
-              <p className="text-sm text-stone-500 mt-1">"{recipe.name}" will be permanently removed.</p>
+              <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">Delete recipe?</h2>
+              <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">"{recipe.name}" will be permanently removed.</p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setConfirmDelete(false)} className="btn-secondary flex-1">Cancel</button>
@@ -393,6 +442,8 @@ interface RecipeFormData {
   servings?: number
   prep_time_mins?: number
   cook_time_mins?: number
+  difficulty?: RecipeDifficulty
+  nutrition?: RecipeNutrition
   ingredients: RecipeIngredientDraft[]
 }
 
@@ -421,6 +472,8 @@ function RecipeForm({
     servings: initial?.servings ?? undefined,
     prep_time_mins: initial?.prep_time_mins ?? undefined,
     cook_time_mins: initial?.cook_time_mins ?? undefined,
+    difficulty: initial?.difficulty ?? undefined,
+    nutrition: initial?.nutrition ?? undefined,
     ingredients: autoMatch(initial?.ingredients?.map(i => ({
       ingredient_name: i.ingredient_name,
       quantity: i.quantity ?? undefined,
@@ -476,7 +529,7 @@ function RecipeForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5 max-w-2xl">
       <div className="flex items-center gap-3">
-        <button type="button" onClick={onCancel} className="p-2 rounded-lg hover:bg-stone-100">
+        <button type="button" onClick={onCancel} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700">
           <ChevronLeft className="w-4 h-4 text-stone-600" />
         </button>
         <h1 className="page-header flex-1">{initial ? 'Edit Recipe' : 'New Recipe'}</h1>
@@ -512,19 +565,61 @@ function RecipeForm({
           <label className="label block mb-1">Source URL</label>
           <input className="input" type="url" value={form.source_url ?? ''} onChange={e => setField('source_url', e.target.value)} placeholder="https://…" />
         </div>
+
+        {/* Difficulty */}
+        <div>
+          <label className="label block mb-1.5">Who's it for?</label>
+          <div className="flex flex-wrap gap-2">
+            {DIFFICULTY_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setField('difficulty', form.difficulty === opt.value ? undefined : opt.value)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                  form.difficulty === opt.value
+                    ? opt.color
+                    : 'border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-600'
+                }`}
+              >
+                {opt.emoji} {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Nutrition */}
+        <div>
+          <label className="label block mb-1.5">Nutrition</label>
+          <div className="flex flex-wrap gap-2">
+            {NUTRITION_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setField('nutrition', form.nutrition === opt.value ? undefined : opt.value)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                  form.nutrition === opt.value
+                    ? opt.color
+                    : 'border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-600'
+                }`}
+              >
+                {opt.emoji} {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Ingredients */}
       <div className="card p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-stone-800">Ingredients</h2>
-        <div className="divide-y divide-stone-100 -mx-5">
+        <h2 className="text-sm font-semibold text-stone-800 dark:text-stone-200">Ingredients</h2>
+        <div className="divide-y divide-stone-100 dark:divide-stone-800 -mx-5">
           {form.ingredients.map((ing, i) => {
             const matched = products.find(p => p.id === ing.product_id)
             return (
               <div key={i} className="px-5 py-2.5 space-y-1.5">
                 <div className="flex items-center gap-2">
                   {/* Name */}
-                  <span className="flex-1 text-sm font-medium text-stone-800">{ing.ingredient_name}</span>
+                  <span className="flex-1 text-sm font-medium text-stone-800 dark:text-stone-100">{ing.ingredient_name}</span>
                   {/* Qty + unit */}
                   <span className="text-xs text-stone-400 shrink-0">
                     {ing.quantity != null ? ing.quantity : ''}
@@ -625,13 +720,13 @@ function AddViaUrl({ onSave, onCancel }: { onSave: (url: string) => Promise<void
   return (
     <div className="max-w-lg space-y-5">
       <div className="flex items-center gap-3">
-        <button onClick={onCancel} className="p-2 rounded-lg hover:bg-stone-100">
+        <button onClick={onCancel} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700">
           <ChevronLeft className="w-4 h-4 text-stone-600" />
         </button>
         <h1 className="page-header">Add recipe from URL</h1>
       </div>
       <div className="card p-5 space-y-4">
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-500 dark:text-stone-400">
           Paste a link to a recipe page. The AI will extract the name, ingredients and method.
           You can review and adjust before saving.
         </p>
@@ -676,13 +771,13 @@ function AddViaAI({ onSave, onCancel }: { onSave: (desc: string) => Promise<void
   return (
     <div className="max-w-lg space-y-5">
       <div className="flex items-center gap-3">
-        <button onClick={onCancel} className="p-2 rounded-lg hover:bg-stone-100">
+        <button onClick={onCancel} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700">
           <ChevronLeft className="w-4 h-4 text-stone-600" />
         </button>
         <h1 className="page-header">Generate recipe with AI</h1>
       </div>
       <div className="card p-5 space-y-4">
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-500 dark:text-stone-400">
           Describe a meal and the AI will generate a full recipe with ingredients and method.
           You can review and adjust before saving.
         </p>

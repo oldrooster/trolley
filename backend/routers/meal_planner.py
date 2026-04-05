@@ -17,6 +17,8 @@ class RecipeSummary(BaseModel):
     image_path: str | None = None
     prep_time_mins: int | None = None
     cook_time_mins: int | None = None
+    difficulty: str | None = None
+    nutrition: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -30,6 +32,7 @@ class MealOut(BaseModel):
     custom_name: str | None = None
     day_hint: str | None = None
     notes: str | None = None
+    assigned_member_ids: list[int] | None = None
 
     model_config = {"from_attributes": True}
 
@@ -48,6 +51,7 @@ class AddMealBody(BaseModel):
     custom_name: str | None = None
     day_hint: str | None = None   # mon/tue/wed/thu/fri/sat/sun
     notes: str | None = None
+    assigned_member_ids: list[int] | None = None
 
 
 class UpdateMealBody(BaseModel):
@@ -56,6 +60,7 @@ class UpdateMealBody(BaseModel):
     custom_name: str | None = None
     day_hint: str | None = None
     notes: str | None = None
+    assigned_member_ids: list[int] | None = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

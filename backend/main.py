@@ -10,7 +10,7 @@ from database import engine, SessionLocal
 import models
 from fts import setup_fts, rebuild_fts
 from seed import run_seed
-from routers import health, catalogue, shopping_list, meal_planner, recipes, receipts, settings_router, insights
+from routers import health, catalogue, shopping_list, meal_planner, recipes, receipts, settings_router, insights, family
 
 
 @asynccontextmanager
@@ -45,6 +45,7 @@ app.include_router(recipes.router, prefix="/api")
 app.include_router(receipts.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(insights.router, prefix="/api")
+app.include_router(family.router, prefix="/api")
 
 # Serve React frontend in production
 static_dir = os.path.join(os.path.dirname(__file__), "static")

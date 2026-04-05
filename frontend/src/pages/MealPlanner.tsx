@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Plus, X, Utensils, ShoppingCart, History } from 'lucide-react'
 import { api } from '../lib/api'
-import type { WeeklyPlan, WeeklyPlanMeal, Recipe } from '../lib/types'
+import type { WeeklyPlan, WeeklyPlanMeal, Recipe, FamilyMember } from '../lib/types'
 import { PlannerSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toast'
+import { DifficultyBadge, NutritionBadge } from './Recipes'
 
 // ── Meal history panel ────────────────────────────────────────────────────────
 
@@ -36,24 +37,24 @@ function MealHistoryPanel({
   const preview = dinners.slice(0, 3).map(m => m.name).join(', ')
 
   return (
-    <div className="rounded-xl border border-stone-200 bg-stone-50 overflow-hidden">
+    <div className="rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 overflow-hidden">
       <button
         className="w-full flex items-center gap-2.5 px-4 py-3 text-left"
         onClick={() => setOpen(v => !v)}
       >
         <History className="w-4 h-4 text-stone-400 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-stone-700">Last week you had…</p>
+          <p className="text-sm font-medium text-stone-700 dark:text-stone-300">Last week you had…</p>
           {!open && <p className="text-xs text-stone-400 truncate">{preview}</p>}
         </div>
         <ChevronRight className={`w-4 h-4 text-stone-400 transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
       {open && (
-        <div className="border-t border-stone-200 divide-y divide-stone-100">
+        <div className="border-t border-stone-200 dark:border-stone-700 divide-y divide-stone-100 dark:divide-stone-800">
           {history.meals.map((meal, i) => (
             <div key={i} className="flex items-center gap-3 px-4 py-2.5 group">
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-stone-700 truncate">{meal.name}</p>
+                <p className="text-sm text-stone-700 dark:text-stone-300 truncate">{meal.name}</p>
                 <p className="text-xs text-stone-400 capitalize">
                   {meal.meal_type}{meal.day_hint ? ` · ${meal.day_hint}` : ''}
                 </p>
@@ -89,9 +90,9 @@ const MEAL_LABELS: Record<MealType, string> = {
 }
 
 const MEAL_COLORS: Record<MealType, string> = {
-  breakfast: 'bg-amber-50 border-amber-200 text-amber-800',
-  lunch: 'bg-sky-50 border-sky-200 text-sky-800',
-  dinner: 'bg-brand-50 border-brand-200 text-brand-800',
+  breakfast: 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300',
+  lunch: 'bg-sky-50 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700 text-sky-800 dark:text-sky-300',
+  dinner: 'bg-brand-50 dark:bg-brand-900/20 border-brand-200 dark:border-brand-700 text-brand-800 dark:text-brand-300',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -133,7 +134,12 @@ export default function MealPlanner() {
   const [modal, setModal] = useState<{ day: Day; type: MealType; meal?: WeeklyPlanMeal } | null>(null)
   const [addingToList, setAddingToList] = useState(false)
   const [addedToList, setAddedToList] = useState(false)
+  const [members, setMembers] = useState<FamilyMember[]>([])
   const { success, error } = useToast()
+
+  useEffect(() => {
+    api.family.list().then(d => setMembers(d as FamilyMember[])).catch(console.error)
+  }, [])
 
   const loadPlan = useCallback(async () => {
     setLoading(true)
@@ -168,6 +174,7 @@ export default function MealPlanner() {
     custom_name?: string
     day_hint?: string
     notes?: string
+    assigned_member_ids?: number[]
   }) {
     if (!plan) return
     if (modal?.meal) {
@@ -243,16 +250,16 @@ export default function MealPlanner() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => setWeekStart(d => addDays(d, -7))}
-          className="p-2 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors"
+          className="p-2 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
         >
           <ChevronLeft className="w-4 h-4 text-stone-600" />
         </button>
-        <span className="text-sm font-medium text-stone-700 flex-1 text-center">
+        <span className="text-sm font-medium text-stone-700 dark:text-stone-300 flex-1 text-center">
           {weekLabel(weekStart)}
         </span>
         <button
           onClick={() => setWeekStart(d => addDays(d, 7))}
-          className="p-2 rounded-lg border border-stone-200 hover:bg-stone-50 transition-colors"
+          className="p-2 rounded-lg border border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
         >
           <ChevronRight className="w-4 h-4 text-stone-600" />
         </button>
@@ -295,6 +302,7 @@ export default function MealPlanner() {
                           key={day}
                           meals={meals}
                           mealType={type}
+                          members={members}
                           onAdd={() => setModal({ day, type })}
                           onEdit={(meal) => setModal({ day, type, meal })}
                           onDelete={handleDeleteMeal}
@@ -329,12 +337,12 @@ export default function MealPlanner() {
                 </button>
               </div>
             ) : (
-              <div className="card divide-y divide-stone-100">
+              <div className="card divide-y divide-stone-100 dark:divide-stone-800">
                 {getGeneralMeals().map(meal => (
                   <div key={meal.id} className="flex items-center gap-3 px-4 py-3 group">
                     <Utensils className="w-4 h-4 text-stone-400 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-stone-800 truncate">
+                      <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">
                         {meal.recipe?.name ?? meal.custom_name}
                       </p>
                       <p className="text-xs text-stone-400">{MEAL_LABELS[meal.meal_type as MealType] ?? meal.meal_type}</p>
@@ -371,6 +379,7 @@ export default function MealPlanner() {
           day={modal.day}
           mealType={modal.type}
           existing={modal.meal}
+          members={members}
           onSave={handleSaveMeal}
           onClose={() => setModal(null)}
         />
@@ -381,15 +390,19 @@ export default function MealPlanner() {
 
 // ── Day cell ──────────────────────────────────────────────────────────────────
 
+const DEFAULT_EMOJIS: Record<string, string> = { kid: '🧒', teen: '👦', adult: '🧑' }
+
 function DayCell({
   meals,
   mealType,
+  members,
   onAdd,
   onEdit,
   onDelete,
 }: {
   meals: WeeklyPlanMeal[]
   mealType: MealType
+  members: FamilyMember[]
   onAdd: () => void
   onEdit: (meal: WeeklyPlanMeal) => void
   onDelete: (id: number) => void
@@ -397,30 +410,46 @@ function DayCell({
   const colorClass = MEAL_COLORS[mealType]
 
   return (
-    <div className="min-h-[64px] rounded-lg border border-stone-100 bg-stone-50/50 p-1 flex flex-col gap-1">
-      {meals.map(meal => (
-        <div
-          key={meal.id}
-          className={`rounded-md border px-1.5 py-1 text-[11px] font-medium leading-tight cursor-pointer flex items-start justify-between gap-1 group ${colorClass}`}
-        >
-          <span
-            className="flex-1 truncate cursor-pointer"
-            onClick={() => onEdit(meal)}
-            title={meal.recipe?.name ?? meal.custom_name ?? ''}
+    <div className="min-h-[64px] rounded-lg border border-stone-100 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/50 p-1 flex flex-col gap-1">
+      {meals.map(meal => {
+        const assignedMembers = meal.assigned_member_ids?.length
+          ? members.filter(m => meal.assigned_member_ids!.includes(m.id))
+          : []
+        return (
+          <div
+            key={meal.id}
+            className={`rounded-md border px-1.5 py-1 text-[11px] font-medium leading-tight cursor-pointer flex flex-col gap-0.5 group ${colorClass}`}
           >
-            {meal.recipe?.name ?? meal.custom_name}
-          </span>
-          <button
-            onClick={() => onDelete(meal.id)}
-            className="opacity-0 group-hover:opacity-100 shrink-0 hover:text-red-500 transition-all"
-          >
-            <X className="w-2.5 h-2.5" />
-          </button>
-        </div>
-      ))}
+            <div className="flex items-start justify-between gap-1">
+              <span
+                className="flex-1 truncate cursor-pointer"
+                onClick={() => onEdit(meal)}
+                title={meal.recipe?.name ?? meal.custom_name ?? ''}
+              >
+                {meal.recipe?.name ?? meal.custom_name}
+              </span>
+              <button
+                onClick={() => onDelete(meal.id)}
+                className="opacity-0 group-hover:opacity-100 shrink-0 hover:text-red-500 transition-all"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </div>
+            {assignedMembers.length > 0 && (
+              <div className="flex gap-0.5 flex-wrap">
+                {assignedMembers.map(m => (
+                  <span key={m.id} title={m.name} className="text-[10px] leading-none">
+                    {m.emoji || DEFAULT_EMOJIS[m.age_group] || '🧑'}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
       <button
         onClick={onAdd}
-        className="flex-1 flex items-center justify-center text-stone-300 hover:text-brand-500 hover:bg-brand-50 rounded-md transition-colors min-h-[24px]"
+        className="flex-1 flex items-center justify-center text-stone-300 dark:text-stone-600 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-md transition-colors min-h-[24px]"
       >
         <Plus className="w-3 h-3" />
       </button>
@@ -434,18 +463,21 @@ function MealModal({
   day,
   mealType,
   existing,
+  members,
   onSave,
   onClose,
 }: {
   day: Day | ''
   mealType: MealType
   existing?: WeeklyPlanMeal
+  members: FamilyMember[]
   onSave: (payload: {
     meal_type: string
     recipe_id?: number
     custom_name?: string
     day_hint?: string
     notes?: string
+    assigned_member_ids?: number[]
   }) => Promise<void>
   onClose: () => void
 }) {
@@ -459,6 +491,7 @@ function MealModal({
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [recipeSearch, setRecipeSearch] = useState('')
   const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(existing?.recipe_id ?? null)
+  const [assignedIds, setAssignedIds] = useState<number[]>(existing?.assigned_member_ids ?? [])
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -475,6 +508,10 @@ function MealModal({
     r.name.toLowerCase().includes(recipeSearch.toLowerCase())
   )
 
+  function toggleMember(id: number) {
+    setAssignedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
   async function handleSave() {
     if (!name.trim() && !selectedRecipeId) return
     setSaving(true)
@@ -484,6 +521,7 @@ function MealModal({
         recipe_id: selectedRecipeId ?? undefined,
         custom_name: selectedRecipeId ? undefined : name.trim(),
         day_hint: selectedDay || undefined,
+        assigned_member_ids: assignedIds.length > 0 ? assignedIds : undefined,
       })
     } finally {
       setSaving(false)
@@ -492,12 +530,12 @@ function MealModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
-        <div className="flex items-center justify-between p-5 border-b border-stone-100">
-          <h2 className="text-base font-semibold text-stone-900">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl w-full max-w-md shadow-xl">
+        <div className="flex items-center justify-between p-5 border-b border-stone-100 dark:border-stone-800">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">
             {existing ? 'Edit meal' : 'Add meal'}
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-stone-100">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700">
             <X className="w-4 h-4 text-stone-500" />
           </button>
         </div>
@@ -531,10 +569,10 @@ function MealModal({
                 value={recipeSearch}
                 onChange={e => setRecipeSearch(e.target.value)}
               />
-              <div className="max-h-36 overflow-y-auto rounded-lg border border-stone-200 divide-y divide-stone-100">
+              <div className="max-h-36 overflow-y-auto rounded-lg border border-stone-200 dark:border-stone-700 divide-y divide-stone-100 dark:divide-stone-800">
                 <button
                   className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                    selectedRecipeId === null ? 'bg-brand-50 text-brand-700 font-medium' : 'hover:bg-stone-50 text-stone-500'
+                    selectedRecipeId === null ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 font-medium' : 'hover:bg-stone-50 dark:hover:bg-stone-800 text-stone-500 dark:text-stone-400'
                   }`}
                   onClick={() => setSelectedRecipeId(null)}
                 >
@@ -544,11 +582,17 @@ function MealModal({
                   <button
                     key={r.id}
                     className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                      selectedRecipeId === r.id ? 'bg-brand-50 text-brand-700 font-medium' : 'hover:bg-stone-50 text-stone-700'
+                      selectedRecipeId === r.id ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 font-medium' : 'hover:bg-stone-50 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300'
                     }`}
                     onClick={() => { setSelectedRecipeId(r.id); setName(r.name) }}
                   >
-                    {r.name}
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate">{r.name}</span>
+                      <span className="flex gap-1 shrink-0">
+                        {r.difficulty && <DifficultyBadge value={r.difficulty} />}
+                        {r.nutrition && <NutritionBadge value={r.nutrition} />}
+                      </span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -566,6 +610,33 @@ function MealModal({
                 placeholder="e.g. Spaghetti Bolognese"
                 autoFocus={recipes.length === 0}
               />
+            </div>
+          )}
+
+          {/* Family member assignment */}
+          {members.length > 0 && (
+            <div>
+              <label className="label block mb-1.5">Who's eating?</label>
+              <div className="flex flex-wrap gap-2">
+                {members.map(m => {
+                  const selected = assignedIds.includes(m.id)
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => toggleMember(m.id)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                        selected
+                          ? 'border-brand-400 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
+                          : 'border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-600'
+                      }`}
+                    >
+                      <span>{m.emoji || DEFAULT_EMOJIS[m.age_group] || '🧑'}</span>
+                      {m.name}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
 

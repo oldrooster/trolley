@@ -147,7 +147,7 @@ export default function ShoppingListPage() {
               <span>{icon}</span>{label}
             </h2>
           )}
-          <div className="card divide-y divide-stone-100">
+          <div className="card divide-y divide-stone-100 dark:divide-stone-800">
             {items.map(item => (
               <ListItemRow
                 key={item.id}
@@ -190,10 +190,10 @@ export default function ShoppingListPage() {
       {/* Archive confirmation */}
       {showArchiveConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl w-full max-w-sm shadow-xl p-6 space-y-4">
             <div>
-              <h2 className="text-base font-semibold text-stone-900">Complete shop?</h2>
-              <p className="text-sm text-stone-500 mt-1">
+              <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">Complete shop?</h2>
+              <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
                 This list will be archived and a fresh one started.
                 {checked.length < (list?.items.length ?? 0) && (
                   <span className="block mt-1 text-amber-600">
@@ -330,7 +330,7 @@ function AddItemRow({ onAdd }: { onAdd: (p: AddItemPayload) => Promise<void> }) 
         />
         {query && (
           <button onClick={() => { setQuery(''); setSuggestions([]); setShowDropdown(false) }}
-            className="p-1 rounded hover:bg-stone-100">
+            className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700">
             <X className="w-3.5 h-3.5 text-stone-400" />
           </button>
         )}
@@ -352,12 +352,12 @@ function AddItemRow({ onAdd }: { onAdd: (p: AddItemPayload) => Promise<void> }) 
               key={item.product.id}
               className={`w-full text-left text-sm flex items-center justify-between transition-colors ${
                 item.isVariant ? 'pl-7 pr-4 py-2' : 'px-4 py-2.5'
-              } ${idx === selectedIndex ? 'bg-brand-50 text-brand-700' : 'hover:bg-stone-50'}`}
+              } ${idx === selectedIndex ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300' : 'hover:bg-stone-50 dark:hover:bg-stone-800'}`}
               onMouseDown={() => addItem(item.product)}
             >
               <span className="flex items-center gap-2 min-w-0">
-                {item.isVariant && <span className="text-stone-300 text-xs shrink-0">↳</span>}
-                <span className={item.isVariant ? 'text-stone-700' : 'font-medium'}>
+                {item.isVariant && <span className="text-stone-300 dark:text-stone-600 text-xs shrink-0">↳</span>}
+                <span className={item.isVariant ? 'text-stone-700 dark:text-stone-300' : 'font-medium'}>
                   {item.isVariant
                     ? (item.product.variant_name ?? item.product.brand_name ?? item.product.base_name)
                     : item.product.base_name}
@@ -375,7 +375,7 @@ function AddItemRow({ onAdd }: { onAdd: (p: AddItemPayload) => Promise<void> }) 
           ))}
           {/* Add as custom option */}
           <button
-            className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 border-t border-stone-100 flex items-center gap-2"
+            className="w-full text-left px-4 py-2.5 text-sm text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 border-t border-stone-100 dark:border-stone-800 flex items-center gap-2"
             onMouseDown={() => addItem()}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -406,7 +406,7 @@ function ListItemRow({
     ?? 'Unknown item'
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 group transition-colors ${item.checked ? 'bg-stone-50/50' : ''}`}>
+    <div className={`flex items-center gap-3 px-4 py-3 group transition-colors ${item.checked ? 'bg-stone-50/50 dark:bg-stone-800/30' : ''}`}>
       {/* Checkbox */}
       <button
         onClick={() => onToggle(item)}
@@ -422,7 +422,7 @@ function ListItemRow({
       {/* Name */}
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium truncate transition-colors ${
-          item.checked ? 'line-through text-stone-400' : 'text-stone-800'
+          item.checked ? 'line-through text-stone-400' : 'text-stone-800 dark:text-stone-100'
         }`}>
           {name}
         </p>
@@ -438,17 +438,17 @@ function ListItemRow({
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => onQtyChange(item, item.quantity - 1)}
-            className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 text-sm font-medium flex items-center justify-center transition-colors touch-manipulation"
+            className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-700 hover:bg-stone-200 dark:hover:bg-stone-600 text-stone-600 dark:text-stone-300 text-sm font-medium flex items-center justify-center transition-colors touch-manipulation"
           >
             −
           </button>
-          <span className="text-sm font-medium text-stone-700 w-8 text-center">
+          <span className="text-sm font-medium text-stone-700 dark:text-stone-300 w-8 text-center">
             {item.quantity % 1 === 0 ? item.quantity : item.quantity.toFixed(1)}
             {item.unit && item.unit !== 'each' ? <span className="text-xs text-stone-400 ml-0.5">{item.unit}</span> : ''}
           </span>
           <button
             onClick={() => onQtyChange(item, item.quantity + 1)}
-            className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 text-sm font-medium flex items-center justify-center transition-colors touch-manipulation"
+            className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-700 hover:bg-stone-200 dark:hover:bg-stone-600 text-stone-600 dark:text-stone-300 text-sm font-medium flex items-center justify-center transition-colors touch-manipulation"
           >
             +
           </button>
@@ -476,7 +476,7 @@ function ProgressBar({ total, checked }: { total: number; checked: number }) {
         <span className="text-xs text-stone-400">{checked} of {total} in trolley</span>
         <span className="text-xs font-medium text-brand-600">{pct}%</span>
       </div>
-      <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-stone-100 dark:bg-stone-700 rounded-full overflow-hidden">
         <div
           className="h-full bg-brand-500 rounded-full transition-all duration-300"
           style={{ width: `${pct}%` }}

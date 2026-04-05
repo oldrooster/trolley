@@ -83,6 +83,8 @@ class Recipe(Base):
     servings: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     prep_time_mins: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     cook_time_mins: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    difficulty: Mapped[Optional[str]] = mapped_column(String, nullable=True)   # everyone / kid_friendly / teen / adult
+    nutrition: Mapped[Optional[str]] = mapped_column(String, nullable=True)    # very_healthy / healthy / moderate / indulgent
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     ingredients: Mapped[list["RecipeIngredient"]] = relationship(
@@ -128,6 +130,7 @@ class WeeklyPlanMeal(Base):
     custom_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     day_hint: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # mon/tue/wed/thu/fri/sat/sun
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    assigned_member_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # [1, 2, 3]
 
     plan: Mapped["WeeklyPlan"] = relationship("WeeklyPlan", back_populates="meals")
     recipe: Mapped[Optional["Recipe"]] = relationship("Recipe")
@@ -170,3 +173,13 @@ class AppSetting(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     key: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class FamilyMember(Base):
+    __tablename__ = "family_members"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    age_group: Mapped[str] = mapped_column(String, nullable=False)  # kid / teen / adult
+    emoji: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)

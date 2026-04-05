@@ -92,4 +92,12 @@ export const api = {
     update: (data: unknown) => request('/settings', { method: 'PUT', body: JSON.stringify(data) }),
     test: () => request('/settings/test', { method: 'POST' }),
   },
+
+  // Family members
+  family: {
+    list: () => request('/family'),
+    create: (data: unknown) => request('/family', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: number, data: unknown) => request(`/family/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: number) => request(`/family/${id}`, { method: 'DELETE' }),
+  },
 }
