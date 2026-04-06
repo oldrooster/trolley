@@ -69,7 +69,7 @@ function fuzzyMatchProduct(name: string, products: Product[]): Product | null {
   return bestScore >= 3 ? best : null
 }
 
-type View = 'list' | 'detail' | 'edit' | 'add-url' | 'add-ai'
+type View = 'list' | 'detail' | 'edit' | 'add-manual' | 'add-url' | 'add-ai'
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -166,6 +166,9 @@ export default function Recipes() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="page-header">Recipes</h1>
           <div className="flex items-center gap-2">
+            <button onClick={() => setView('add-manual')} className="btn-secondary flex items-center gap-2">
+              <Pencil className="w-4 h-4" /> Manual
+            </button>
             <button onClick={() => setView('add-url')} className="btn-secondary flex items-center gap-2">
               <Link className="w-4 h-4" /> URL
             </button>
@@ -195,7 +198,7 @@ export default function Recipes() {
             <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : recipes.length === 0 ? (
-          <EmptyState onUrl={() => setView('add-url')} onAI={() => setView('add-ai')} />
+          <EmptyState onManual={() => setView('add-manual')} onUrl={() => setView('add-url')} onAI={() => setView('add-ai')} />
         ) : loading ? (
           <CardGridSkeleton count={4} />
         ) : (
@@ -232,6 +235,18 @@ export default function Recipes() {
         products={products}
         onSave={(data) => handleSave(data, selected.id)}
         onCancel={() => setView('detail')}
+      />
+    )
+  }
+
+  // ── Add manually
+  if (view === 'add-manual') {
+    return (
+      <RecipeForm
+        categories={categories}
+        products={products}
+        onSave={(data) => handleSave(data)}
+        onCancel={() => setView('list')}
       />
     )
   }
@@ -357,23 +372,21 @@ function RecipeDetail({
             <BookOpen className="w-12 h-12 text-brand-300" />
           </div>
         )}
-        {/* Hover overlay: upload always available; generate only when no image */}
+        {/* Hover overlay: upload + generate always available */}
         <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-xl">
           <label className="cursor-pointer bg-white/90 dark:bg-stone-800/90 rounded-lg px-3 py-2 flex items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700">
             <Upload className="w-4 h-4" /> {recipe.image_path ? 'Change' : 'Upload'}
             <input type="file" accept="image/*" className="hidden" onChange={e => e.target.files?.[0] && onImageUpload(e.target.files[0])} />
           </label>
-          {!recipe.image_path && (
-            <button
-              type="button"
-              onClick={handleGenerateImage}
-              disabled={generatingImage}
-              className="bg-brand-600/90 hover:bg-brand-600 rounded-lg px-3 py-2 flex items-center gap-2 text-sm font-medium text-white disabled:opacity-60"
-            >
-              <Sparkles className="w-4 h-4" />
-              {generatingImage ? 'Generating…' : 'Generate'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleGenerateImage}
+            disabled={generatingImage}
+            className="bg-brand-600/90 hover:bg-brand-600 rounded-lg px-3 py-2 flex items-center gap-2 text-sm font-medium text-white disabled:opacity-60"
+          >
+            <Sparkles className="w-4 h-4" />
+            {generatingImage ? 'Generating…' : recipe.image_path ? 'Regenerate' : 'Generate'}
+          </button>
         </div>
       </div>
 
@@ -1102,15 +1115,18 @@ function AddViaAI({ onSave, onCancel }: { onSave: (desc: string) => Promise<void
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-function EmptyState({ onUrl, onAI }: { onUrl: () => void; onAI: () => void }) {
+function EmptyState({ onManual, onUrl, onAI }: { onManual: () => void; onUrl: () => void; onAI: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="w-14 h-14 bg-brand-50 rounded-2xl flex items-center justify-center mb-4">
         <BookOpen className="w-7 h-7 text-brand-400" />
       </div>
       <p className="text-stone-500 text-sm">No recipes saved yet.</p>
-      <p className="text-stone-400 text-xs mt-1 mb-5">Add one by pasting a URL or asking AI.</p>
-      <div className="flex gap-3">
+      <p className="text-stone-400 text-xs mt-1 mb-5">Add one manually, paste a URL, or ask AI.</p>
+      <div className="flex flex-wrap gap-3 justify-center">
+        <button onClick={onManual} className="btn-secondary flex items-center gap-2">
+          <Pencil className="w-4 h-4" /> Manual
+        </button>
         <button onClick={onUrl} className="btn-secondary flex items-center gap-2">
           <Link className="w-4 h-4" /> From URL
         </button>

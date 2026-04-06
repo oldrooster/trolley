@@ -10,6 +10,7 @@ import { useToast } from '../components/Toast'
 export default function Catalogue() {
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [totalProducts, setTotalProducts] = useState<number | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -18,6 +19,8 @@ export default function Catalogue() {
   const [prefillBase, setPrefillBase] = useState<Product | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [deleting, setDeleting] = useState(false)
+  // { expand: bool, seq: number } — seq increments on every click so useEffect always fires
+  const [expandSignal, setExpandSignal] = useState<{ expand: boolean; seq: number } | null>(null)
   const { success, error } = useToast()
 
   const debouncedQuery = useDebounce(query, 250)
@@ -32,10 +35,13 @@ export default function Catalogue() {
       let data: Product[]
       if (debouncedQuery.trim().length >= 1) {
         data = (await api.catalogue.search(debouncedQuery)) as Product[]
+        setTotalProducts(null) // search uses FTS, no total needed
       } else {
-        data = (await api.catalogue.list(
+        const res = await api.catalogue.list(
           selectedCategory ? { category_id: selectedCategory } : undefined
-        )) as Product[]
+        ) as { items: Product[]; total: number; limit: number }
+        data = res.items
+        setTotalProducts(res.total)
       }
       setProducts(data)
     } catch (err) {
@@ -120,10 +126,21 @@ export default function Catalogue() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="page-header">Product Catalogue</h1>
-        <button onClick={openAdd} className="btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setExpandSignal(prev => ({ expand: !(prev?.expand ?? true), seq: (prev?.seq ?? 0) + 1 }))}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            {expandSignal?.expand === false
+              ? <><ChevronRight className="w-4 h-4" /> Expand all</>
+              : <><ChevronDown className="w-4 h-4" /> Collapse all</>
+            }
+          </button>
+          <button onClick={openAdd} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Add Product
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -160,6 +177,13 @@ export default function Catalogue() {
         </div>
       )}
 
+      {/* Count indicator */}
+      {!loading && !debouncedQuery.trim() && totalProducts !== null && totalProducts > products.length && (
+        <p className="text-xs text-stone-400 dark:text-stone-500 text-right">
+          Showing {products.length} of {totalProducts} products — use search or a category filter to find more
+        </p>
+      )}
+
       {/* Content */}
       {loading ? (
         <CatalogueSkeleton />
@@ -175,6 +199,7 @@ export default function Catalogue() {
               onEdit={openEdit}
               onDelete={setDeleteTarget}
               onAddVariant={openAddVariant}
+              expandSignal={expandSignal}
             />
           ))}
         </div>
@@ -195,6 +220,7 @@ export default function Catalogue() {
                     onEdit={openEdit}
                     onDelete={setDeleteTarget}
                     onAddVariant={openAddVariant}
+                    expandSignal={expandSignal}
                   />
                 ))}
               </div>
@@ -213,6 +239,7 @@ export default function Catalogue() {
                     onEdit={openEdit}
                     onDelete={setDeleteTarget}
                     onAddVariant={openAddVariant}
+                    expandSignal={expandSignal}
                   />
                 ))}
               </div>
@@ -260,134 +287,171 @@ export default function Catalogue() {
   )
 }
 
+// ── Shared row renderer ───────────────────────────────────────────────────────
+
+function ItemRow({
+  name, unit, indent = 0, hasChildren, open, onToggle, onEdit, onDelete, onAdd,
+}: {
+  name: string
+  unit: string
+  indent?: number   // 0 = base, 1 = variant, 2 = brand
+  hasChildren?: boolean
+  open?: boolean
+  onToggle?: () => void
+  onEdit: () => void
+  onDelete: () => void
+  onAdd?: () => void
+}) {
+  const pl = ['px-4', 'pl-8 pr-4', 'pl-14 pr-4'][indent] ?? 'px-4'
+  return (
+    <div className={`flex items-center gap-2 py-2.5 group ${pl}`}>
+      {/* Chevron or spacer — keeps all names left-aligned */}
+      {indent > 0 && (
+        hasChildren && onToggle ? (
+          <button type="button" onClick={onToggle} className="shrink-0 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300">
+            {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </button>
+        ) : (
+          <span className="w-3.5 shrink-0" />
+        )
+      )}
+      {/* Expand/collapse for level-0 rows */}
+      {indent === 0 && onToggle && (
+        <button type="button" onClick={onToggle} className="shrink-0 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300">
+          {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+        </button>
+      )}
+      {indent === 0 && !onToggle && <span className="w-3.5 shrink-0" />}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">{name}</p>
+      </div>
+      {onAdd && (
+        <button onClick={onAdd} className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors opacity-0 group-hover:opacity-100 touch-manipulation shrink-0" title="Add variant">
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      )}
+      <span className="text-xs text-stone-400 shrink-0">{unit}</span>
+      <div className="flex items-center gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
+        <button onClick={onEdit} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors touch-manipulation" title="Edit">
+          <Pencil className="w-4 h-4 text-stone-500" />
+        </button>
+        <button onClick={onDelete} className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors touch-manipulation" title="Delete">
+          <Trash2 className="w-4 h-4 text-red-400" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── VariantGroup — collapses brand rows under a variant ───────────────────────
+
+function VariantGroup({
+  products, onEdit, onDelete, expandSignal,
+}: {
+  products: Product[]
+  onEdit: (p: Product) => void
+  onDelete: (p: Product) => void
+  expandSignal?: { expand: boolean; seq: number } | null
+}) {
+  const [open, setOpen] = useState(true)
+  useEffect(() => { if (expandSignal != null) setOpen(expandSignal.expand) }, [expandSignal])
+  // Bare variant product (no brand) represents the variant itself
+  const variantProduct = products.find(p => !p.brand_name) ?? products[0]
+  const brandRows = products.filter(p => p.brand_name)
+
+  return (
+    <div>
+      <ItemRow
+        name={variantProduct.variant_name ?? variantProduct.base_name}
+        unit={variantProduct.unit}
+        indent={1}
+        hasChildren={brandRows.length > 0}
+        open={open}
+        onToggle={brandRows.length > 0 ? () => setOpen(v => !v) : undefined}
+        onEdit={() => onEdit(variantProduct)}
+        onDelete={() => onDelete(variantProduct)}
+      />
+      {open && brandRows.map(p => (
+        <ItemRow
+          key={p.id}
+          name={p.brand_name!}
+          unit={p.unit}
+          indent={2}
+          onEdit={() => onEdit(p)}
+          onDelete={() => onDelete(p)}
+        />
+      ))}
+    </div>
+  )
+}
+
 // ── BaseGroup — collapses variants under a base name ──────────────────────────
 
 function BaseGroup({
-  products,
-  onEdit,
-  onDelete,
-  onAddVariant,
+  products, onEdit, onDelete, onAddVariant, expandSignal,
 }: {
   products: Product[]
   onEdit: (p: Product) => void
   onDelete: (p: Product) => void
   onAddVariant: (baseProduct: Product) => void
+  expandSignal?: { expand: boolean; seq: number } | null
 }) {
+  const [open, setOpen] = useState(true)
+  useEffect(() => { if (expandSignal != null) setOpen(expandSignal.expand) }, [expandSignal])
   const baseProduct = products.find(p => !p.variant_name && !p.brand_name) ?? products[0]
   const baseName = baseProduct.base_name
-  const hasVariants = products.length > 1 || products[0].variant_name || products[0].brand_name
-  const [open, setOpen] = useState(true)
 
-  if (!hasVariants) {
-    // Single generic product — render flat with Add variant button
-    return (
-      <div className="flex items-center gap-2 px-4 py-2.5 group">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">{baseName}</p>
-        </div>
-        <span className="text-xs text-stone-400 shrink-0">{baseProduct.unit}</span>
-        <button
-          onClick={() => onAddVariant(baseProduct)}
-          className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors opacity-0 group-hover:opacity-100 touch-manipulation shrink-0"
-          title="Add variant"
-        >
-          <Plus className="w-3.5 h-3.5" />
-        </button>
-        <div className="flex items-center gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => onEdit(baseProduct)} className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors touch-manipulation" title="Edit">
-            <Pencil className="w-4 h-4 text-stone-500" />
-          </button>
-          <button onClick={() => onDelete(baseProduct)} className="p-2 rounded-lg hover:bg-red-50 transition-colors touch-manipulation" title="Delete">
-            <Trash2 className="w-4 h-4 text-red-400" />
-          </button>
-        </div>
-      </div>
-    )
-  }
+  // Products with a variant_name → grouped into VariantGroups
+  const withVariant = products.filter(p => p.variant_name)
+  // Products with only a brand_name (no variant_name) → flat brand rows directly under base
+  const brandOnly = products.filter(p => p.brand_name && !p.variant_name)
+
+  const variantGroups = Object.values(
+    withVariant.reduce<Record<string, Product[]>>((acc, p) => {
+      const key = p.variant_name!
+      ;(acc[key] = acc[key] ?? []).push(p)
+      return acc
+    }, {})
+  )
+
+  const hasChildren = variantGroups.length > 0 || brandOnly.length > 0
 
   return (
     <div>
-      {/* Base header row */}
-      <div className="flex items-center gap-2 px-4 py-2.5 group">
-        <button
-          onClick={() => setOpen(v => !v)}
-          className="flex items-center gap-2 flex-1 min-w-0 text-left"
-        >
-          {open
-            ? <ChevronDown className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-            : <ChevronRight className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-          }
-          <span className="text-sm font-semibold text-stone-700 dark:text-stone-300">{baseName}</span>
-          <span className="text-xs text-stone-400">({products.length} variant{products.length !== 1 ? 's' : ''})</span>
-        </button>
-        <button
-          onClick={() => onAddVariant(baseProduct)}
-          className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors opacity-0 group-hover:opacity-100 touch-manipulation shrink-0"
-          title="Add variant"
-        >
-          <Plus className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      {/* Variants */}
-      {open && (
+      <ItemRow
+        name={baseName}
+        unit={baseProduct.unit}
+        indent={0}
+        hasChildren={hasChildren}
+        open={open}
+        onToggle={hasChildren ? () => setOpen(v => !v) : undefined}
+        onEdit={() => onEdit(baseProduct)}
+        onDelete={() => onDelete(baseProduct)}
+        onAdd={() => onAddVariant(baseProduct)}
+      />
+      {open && hasChildren && (
         <div className="border-t border-stone-50 dark:border-stone-800">
-          {products.map(p => (
-            <ProductRow
-              key={p.id}
-              product={p}
+          {variantGroups.map(group => (
+            <VariantGroup
+              key={group[0].variant_name}
+              products={group}
               onEdit={onEdit}
               onDelete={onDelete}
-              onAddVariant={onAddVariant}
-              indent
+              expandSignal={expandSignal}
+            />
+          ))}
+          {brandOnly.map(p => (
+            <ItemRow
+              key={p.id}
+              name={p.brand_name!}
+              unit={p.unit}
+              indent={1}
+              onEdit={() => onEdit(p)}
+              onDelete={() => onDelete(p)}
             />
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-// ── ProductRow ────────────────────────────────────────────────────────────────
-
-function ProductRow({
-  product,
-  onEdit,
-  onDelete,
-  indent = false,
-}: {
-  product: Product
-  onEdit: (p: Product) => void
-  onDelete: (p: Product) => void
-  onAddVariant?: (baseProduct: Product) => void
-  indent?: boolean
-}) {
-  const displayName = product.variant_name ?? product.brand_name ?? product.base_name
-  const subtitle = product.brand_name && product.variant_name ? product.brand_name : null
-
-  return (
-    <div className={`flex items-center gap-3 py-2.5 group ${indent ? 'pl-9 pr-4' : 'px-4'}`}>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">{displayName}</p>
-        {subtitle && <p className="text-xs text-stone-400 truncate">{subtitle}</p>}
-      </div>
-      <span className="text-xs text-stone-400 shrink-0">{product.unit}</span>
-      <div className="flex items-center gap-1 opacity-30 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={() => onEdit(product)}
-          className="p-2 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 transition-colors touch-manipulation"
-          title="Edit"
-        >
-          <Pencil className="w-4 h-4 text-stone-500" />
-        </button>
-        <button
-          onClick={() => onDelete(product)}
-          className="p-2 rounded-lg hover:bg-red-50 transition-colors touch-manipulation"
-          title="Delete"
-        >
-          <Trash2 className="w-4 h-4 text-red-400" />
-        </button>
-      </div>
     </div>
   )
 }

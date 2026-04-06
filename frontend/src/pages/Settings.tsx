@@ -320,9 +320,9 @@ function FamilySection() {
           {members.map(m => (
             <div key={m.id} className="flex items-center gap-3 py-2 group">
               {m.photo_path ? (
-                <img src={m.photo_path} alt={m.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                <img src={m.photo_path} alt={m.name} className="w-14 h-14 rounded-full object-cover shrink-0" />
               ) : (
-                <span className="text-xl w-8 text-center shrink-0">{m.emoji || DEFAULT_EMOJIS[m.age_group as AgeGroup]}</span>
+                <span className="text-4xl w-14 text-center shrink-0">{m.emoji || DEFAULT_EMOJIS[m.age_group as AgeGroup]}</span>
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-stone-800 dark:text-stone-100">{m.name}</p>

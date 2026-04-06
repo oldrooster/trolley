@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
@@ -54,7 +55,15 @@ def search_catalogue(
 
 # ── Catalogue browse ──────────────────────────────────────────────────────────
 
-@router.get("/catalogue", response_model=list[ProductOut])
+class CatalogueResponse(BaseModel):
+    items: list[ProductOut]
+    total: int
+    limit: int
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/catalogue", response_model=CatalogueResponse)
 def list_catalogue(
     category_id: int | None = None,
     skip: int = 0,
@@ -64,7 +73,11 @@ def list_catalogue(
     q = db.query(Product).options(joinedload(Product.category))
     if category_id is not None:
         q = q.filter(Product.category_id == category_id)
-    return q.order_by(Product.base_name, Product.variant_name).offset(skip).limit(limit).all()
+    total = db.query(Product.id).filter(
+        *([Product.category_id == category_id] if category_id is not None else [])
+    ).count()
+    items = q.order_by(Product.base_name, Product.variant_name).offset(skip).limit(limit).all()
+    return CatalogueResponse(items=items, total=total, limit=limit)
 
 
 # ── Single product ───────────────────────────────────────────────────────────
@@ -103,8 +116,32 @@ def update_product(product_id: int, body: ProductUpdate, db: Session = Depends(g
     product = db.get(Product, product_id)
     if not product:
         raise HTTPException(404, "Product not found")
+
+    old_base_name = product.base_name
+    old_variant_name = product.variant_name
+
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(product, field, value)
+
+    # Cascade base_name rename to all siblings sharing the same base_name
+    if body.base_name is not None and body.base_name != old_base_name:
+        siblings = db.query(Product).filter(
+            Product.base_name == old_base_name,
+            Product.id != product_id,
+        ).all()
+        for s in siblings:
+            s.base_name = body.base_name
+
+    # Cascade variant_name rename to all siblings sharing the same variant_name (brand rows)
+    if body.variant_name is not None and body.variant_name != old_variant_name and old_variant_name is not None:
+        siblings = db.query(Product).filter(
+            Product.base_name == product.base_name,
+            Product.variant_name == old_variant_name,
+            Product.id != product_id,
+        ).all()
+        for s in siblings:
+            s.variant_name = body.variant_name
+
     db.commit()
     db.refresh(product)
     return db.query(Product).options(joinedload(Product.category)).filter(Product.id == product_id).one()

@@ -17,8 +17,8 @@ Extract the recipe and return valid JSON matching this exact schema — return O
 
 Rules:
 - quantities must be numbers (floats), not strings
-- ALWAYS use metric units: g, kg, ml, L, cm — NEVER cups, oz, fl oz, lbs, inches, or other US customary units
-  - Convert if needed: 1 cup ≈ 240ml, 1 oz ≈ 28g, 1 lb ≈ 450g, 1 fl oz ≈ 30ml
+- ALWAYS use metric units everywhere — in ingredients AND in the method text: g, kg, ml, L, cm — NEVER cups, oz, fl oz, lbs, inches, or other US customary units
+  - Convert if needed: 1 cup ≈ 240ml, 1 oz ≈ 28g, 1 lb ≈ 450g, 1 fl oz ≈ 30ml, 1 inch ≈ 2.5cm, 9x13 inch dish ≈ 23x33cm dish
   - Exception: "each", "bunch", "slice", "sheet", "pinch", "sprig" are fine for count/describe quantities
 - If a value is unknown use null
 - Return ONLY valid JSON with no markdown fences"""
@@ -30,7 +30,7 @@ Return valid JSON matching this exact schema — return ONLY the JSON, nothing e
 {
   "name": "Recipe name",
   "description": "Brief appealing description",
-  "servings": 4,
+  "servings": 5,
   "prep_time_mins": 15,
   "cook_time_mins": 30,
   "method": "Detailed numbered step-by-step cooking instructions",
@@ -41,7 +41,8 @@ Return valid JSON matching this exact schema — return ONLY the JSON, nothing e
 
 Rules:
 - quantities must be numbers (floats)
-- ALWAYS use metric units: g, kg, ml, L, cm — NEVER cups, oz, fl oz, lbs, inches, or other US customary units
+- ALWAYS use metric units everywhere — in ingredients AND in the method text: g, kg, ml, L, cm — NEVER cups, oz, fl oz, lbs, inches, or other US customary units
+  - Convert if needed: 1 cup ≈ 240ml, 1 oz ≈ 28g, 1 lb ≈ 450g, 1 fl oz ≈ 30ml, 1 inch ≈ 2.5cm, 9x13 inch dish ≈ 23x33cm dish
   - Exception: "each", "bunch", "slice", "sheet", "pinch", "sprig" are fine for count/describe quantities
 - Keep it practical and achievable for a home cook
 - Return ONLY valid JSON with no markdown fences"""

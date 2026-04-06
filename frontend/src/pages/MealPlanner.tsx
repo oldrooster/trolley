@@ -52,18 +52,27 @@ function MealHistoryPanel({
       {open && (
         <div className="border-t border-stone-200 dark:border-stone-700 divide-y divide-stone-100 dark:divide-stone-800">
           {history.meals.map((meal, i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-2.5 group">
+            <div
+              key={i}
+              draggable
+              onDragStart={e => {
+                e.dataTransfer.setData('application/x-meal', JSON.stringify({ name: meal.name, meal_type: meal.meal_type }))
+                e.dataTransfer.effectAllowed = 'copy'
+              }}
+              className="flex items-center gap-3 px-4 py-2.5 group cursor-grab active:cursor-grabbing select-none"
+            >
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-stone-700 dark:text-stone-300 truncate">{meal.name}</p>
                 <p className="text-xs text-stone-400 capitalize">
                   {meal.meal_type}{meal.day_hint ? ` · ${meal.day_hint}` : ''}
                 </p>
               </div>
+              <span className="text-stone-300 dark:text-stone-600 text-xs shrink-0 opacity-0 group-hover:opacity-100">drag or</span>
               <button
                 onClick={() => onUseMeal(meal.name, meal.meal_type)}
-                className="opacity-0 group-hover:opacity-100 text-xs text-brand-600 font-medium px-2 py-1 rounded hover:bg-brand-50 transition-all"
+                className="opacity-0 group-hover:opacity-100 text-xs text-brand-600 font-medium px-2 py-1 rounded hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-all shrink-0"
               >
-                Add this week
+                add
               </button>
             </div>
           ))}
@@ -205,6 +214,17 @@ export default function MealPlanner() {
     setPlan(prev => prev ? { ...prev, meals: [...prev.meals, created] } : prev)
   }
 
+  async function handleDropMeal(name: string, mealType: string, day: Day) {
+    if (!plan) return
+    const created = await api.plans.addMeal(plan.id, {
+      meal_type: mealType,
+      custom_name: name,
+      day_hint: day,
+    }) as WeeklyPlanMeal
+    setPlan(prev => prev ? { ...prev, meals: [...prev.meals, created] } : prev)
+    success(`${name} added to ${DAY_LABELS[day]}`)
+  }
+
   async function handleAddAllToList() {
     if (!plan) return
     const mealIds = plan.meals.filter(m => m.recipe_id).map(m => m.id)
@@ -307,6 +327,7 @@ export default function MealPlanner() {
                           onAdd={() => setModal({ day, type })}
                           onEdit={(meal) => setModal({ day, type, meal })}
                           onDelete={handleDeleteMeal}
+                          onDrop={(name, mealType) => handleDropMeal(name, mealType, day)}
                         />
                       )
                     })}
@@ -397,11 +418,11 @@ function MemberAvatar({ member, size = 'sm' }: { member: FamilyMember; size?: 's
   if (member.photo_path) {
     // chip = inside day cell pill, sm = inside modal button
     const cls = size === 'chip'
-      ? 'w-5 h-5 rounded-full object-cover inline-block'
-      : 'w-6 h-6 rounded-full object-cover inline-block'
+      ? 'w-10 h-10 rounded-full object-cover inline-block'
+      : 'w-12 h-12 rounded-full object-cover inline-block'
     return <img src={member.photo_path} alt={member.name} className={cls} />
   }
-  const textSize = size === 'chip' ? 'text-sm' : 'text-base'
+  const textSize = size === 'chip' ? 'text-2xl' : 'text-3xl'
   return <span className={textSize}>{member.emoji || DEFAULT_EMOJIS[member.age_group] || '🧑'}</span>
 }
 
@@ -412,6 +433,7 @@ function DayCell({
   onAdd,
   onEdit,
   onDelete,
+  onDrop,
 }: {
   meals: WeeklyPlanMeal[]
   mealType: MealType
@@ -419,11 +441,29 @@ function DayCell({
   onAdd: () => void
   onEdit: (meal: WeeklyPlanMeal) => void
   onDelete: (id: number) => void
+  onDrop: (name: string, mealType: string) => void
 }) {
   const colorClass = MEAL_COLORS[mealType]
+  const [dragOver, setDragOver] = useState(false)
 
   return (
-    <div className="min-h-[64px] rounded-lg border border-stone-100 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/50 p-1 flex flex-col gap-1">
+    <div
+      className={`min-h-[64px] rounded-lg border p-1 flex flex-col gap-1 transition-colors ${
+        dragOver
+          ? 'border-brand-400 bg-brand-50/50 dark:bg-brand-900/20'
+          : 'border-stone-100 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/50'
+      }`}
+      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDragOver(true) }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={e => {
+        e.preventDefault()
+        setDragOver(false)
+        try {
+          const data = JSON.parse(e.dataTransfer.getData('application/x-meal'))
+          onDrop(data.name, data.meal_type)
+        } catch {}
+      }}
+    >
       {meals.map(meal => {
         const cook = meal.cook_member_id
           ? members.find(m => m.id === meal.cook_member_id)
