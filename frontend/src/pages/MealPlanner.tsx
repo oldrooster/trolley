@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { ChevronLeft, ChevronRight, Plus, X, Utensils, ShoppingCart, History } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Utensils, ShoppingCart, History, LayoutList, LayoutGrid } from 'lucide-react'
 import { api } from '../lib/api'
 import type { WeeklyPlan, WeeklyPlanMeal, Recipe, FamilyMember } from '../lib/types'
 import { PlannerSkeleton } from '../components/Skeleton'
@@ -91,17 +91,18 @@ const DAY_LABELS: Record<Day, string> = {
   mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun'
 }
 
-const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'] as const
+const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'dessert'] as const
 type MealType = typeof MEAL_TYPES[number]
 
 const MEAL_LABELS: Record<MealType, string> = {
-  breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner'
+  breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', dessert: 'Dessert'
 }
 
 const MEAL_COLORS: Record<MealType, string> = {
   breakfast: 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-300',
   lunch: 'bg-sky-50 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700 text-sky-800 dark:text-sky-300',
   dinner: 'bg-brand-50 dark:bg-brand-900/20 border-brand-200 dark:border-brand-700 text-brand-800 dark:text-brand-300',
+  dessert: 'bg-pink-50 dark:bg-pink-900/20 border-pink-200 dark:border-pink-700 text-pink-800 dark:text-pink-300',
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -140,6 +141,7 @@ export default function MealPlanner() {
   const [weekStart, setWeekStart] = useState<Date>(toMonday(new Date()))
   const [plan, setPlan] = useState<WeeklyPlan | null>(null)
   const [loading, setLoading] = useState(true)
+  const [viewMode, setViewMode] = useState<'vertical' | 'horizontal'>('vertical')
   const [modal, setModal] = useState<{ day: Day; type: MealType; meal?: WeeklyPlanMeal } | null>(null)
   const [addingToList, setAddingToList] = useState(false)
   const [addedToList, setAddedToList] = useState(false)
@@ -175,6 +177,11 @@ export default function MealPlanner() {
   function getGeneralMeals(): WeeklyPlanMeal[] {
     if (!plan) return []
     return plan.meals.filter(m => !m.day_hint)
+  }
+
+  function getMealsByType(type: MealType): WeeklyPlanMeal[] {
+    if (!plan) return []
+    return plan.meals.filter(m => m.meal_type === type)
   }
 
   async function handleSaveMeal(payload: {
@@ -267,6 +274,30 @@ export default function MealPlanner() {
         </div>
       </div>
 
+      {/* View toggle */}
+      <div className="flex items-center gap-1 self-start bg-stone-100 dark:bg-stone-800 rounded-lg p-0.5">
+        <button
+          onClick={() => setViewMode('vertical')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            viewMode === 'vertical'
+              ? 'bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 shadow-sm'
+              : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300'
+          }`}
+        >
+          <LayoutList className="w-3.5 h-3.5" /> Vertical
+        </button>
+        <button
+          onClick={() => setViewMode('horizontal')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            viewMode === 'horizontal'
+              ? 'bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 shadow-sm'
+              : 'text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300'
+          }`}
+        >
+          <LayoutGrid className="w-3.5 h-3.5" /> Horizontal
+        </button>
+      </div>
+
       {/* Week navigator */}
       <div className="flex items-center gap-3">
         <button
@@ -290,102 +321,138 @@ export default function MealPlanner() {
         <PlannerSkeleton />
       ) : (
         <>
-          {/* Day grid — desktop: 7 columns, mobile: scrollable */}
-          <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
-            <div className="min-w-[640px] md:min-w-0">
-              {/* Day headers */}
-              <div className="grid grid-cols-7 gap-2 mb-2">
-                {DAYS.map((day, i) => {
-                  const d = addDays(weekStart, i)
-                  const isToday = isoDate(d) === isoDate(new Date())
-                  return (
-                    <div key={day} className="text-center">
-                      <p className={`text-xs font-semibold uppercase tracking-wide ${isToday ? 'text-brand-600' : 'text-stone-400'}`}>
-                        {DAY_LABELS[day]}
-                      </p>
-                      <p className={`text-sm font-medium mt-0.5 ${isToday ? 'text-brand-600' : 'text-stone-500'}`}>
-                        {d.getDate()}
-                      </p>
-                    </div>
-                  )
-                })}
+          {viewMode === 'vertical' ? (
+            /* ── Vertical view ── */
+            <div className="space-y-5">
+              {/* Dinner — days listed vertically */}
+              <div>
+                <p className="label mb-2">Dinner</p>
+                <div className="card divide-y divide-stone-100 dark:divide-stone-800">
+                  {DAYS.map((day, i) => {
+                    const d = addDays(weekStart, i)
+                    const isToday = isoDate(d) === isoDate(new Date())
+                    const meals = getMeals(day, 'dinner')
+                    const cook = (meal: WeeklyPlanMeal) => meal.cook_member_id ? members.find(m => m.id === meal.cook_member_id) : null
+                    return (
+                      <div
+                        key={day}
+                        className="flex items-center gap-3 px-4 py-3"
+                        onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }}
+                        onDrop={e => {
+                          e.preventDefault()
+                          try {
+                            const data = JSON.parse(e.dataTransfer.getData('application/x-meal'))
+                            handleDropMeal(data.name, data.meal_type, day)
+                          } catch {}
+                        }}
+                      >
+                        {/* Day label */}
+                        <div className={`w-10 shrink-0 ${isToday ? 'text-brand-600' : ''}`}>
+                          <p className={`text-xs font-semibold uppercase tracking-wide ${isToday ? 'text-brand-600' : 'text-stone-400'}`}>
+                            {DAY_LABELS[day]}
+                          </p>
+                          <p className={`text-sm font-medium ${isToday ? 'text-brand-600' : 'text-stone-500'}`}>
+                            {d.getDate()}
+                          </p>
+                        </div>
+                        {/* Meals */}
+                        <div className="flex-1 flex flex-wrap gap-1.5 items-center min-w-0">
+                          {meals.map(meal => (
+                            <div
+                              key={meal.id}
+                              className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium cursor-pointer group ${MEAL_COLORS['dinner']}`}
+                              onClick={() => setModal({ day, type: 'dinner', meal })}
+                            >
+                              <span className="max-w-[140px] truncate">{meal.recipe?.name ?? meal.custom_name}</span>
+                              {cook(meal) && <span className="shrink-0">{cook(meal)!.emoji || '🧑'}</span>}
+                              <button
+                                onClick={e => { e.stopPropagation(); handleDeleteMeal(meal.id) }}
+                                className="shrink-0 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all ml-0.5"
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => setModal({ day, type: 'dinner' })}
+                            className="text-stone-300 dark:text-stone-600 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-md p-1 transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
 
-              {/* Meal rows */}
-              {MEAL_TYPES.map(type => (
-                <div key={type} className="mb-2">
-                  <p className="label mb-1.5">{MEAL_LABELS[type]}</p>
-                  <div className="grid grid-cols-7 gap-2">
-                    {DAYS.map(day => {
-                      const meals = getMeals(day, type)
+              {/* Breakfast, lunches & other meals */}
+              <FreeformSection
+                label="Breakfast, lunches & other meals"
+                type={null}
+                meals={(plan?.meals ?? []).filter(m => !(m.meal_type === 'dinner' && m.day_hint))}
+                members={members}
+                onAdd={() => setModal({ day: '' as Day, type: 'breakfast' })}
+                onDelete={handleDeleteMeal}
+              />
+            </div>
+          ) : (
+            /* ── Horizontal view (original) ── */
+            <>
+              <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+                <div className="min-w-[640px] md:min-w-0">
+                  <div className="grid grid-cols-7 gap-2 mb-2">
+                    {DAYS.map((day, i) => {
+                      const d = addDays(weekStart, i)
+                      const isToday = isoDate(d) === isoDate(new Date())
                       return (
-                        <DayCell
-                          key={day}
-                          meals={meals}
-                          mealType={type}
-                          members={members}
-                          onAdd={() => setModal({ day, type })}
-                          onEdit={(meal) => setModal({ day, type, meal })}
-                          onDelete={handleDeleteMeal}
-                          onDrop={(name, mealType) => handleDropMeal(name, mealType, day)}
-                        />
+                        <div key={day} className="text-center">
+                          <p className={`text-xs font-semibold uppercase tracking-wide ${isToday ? 'text-brand-600' : 'text-stone-400'}`}>
+                            {DAY_LABELS[day]}
+                          </p>
+                          <p className={`text-sm font-medium mt-0.5 ${isToday ? 'text-brand-600' : 'text-stone-500'}`}>
+                            {d.getDate()}
+                          </p>
+                        </div>
                       )
                     })}
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* General meals this week */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="label">General this week</h2>
-              <button
-                onClick={() => setModal({ day: 'mon' as Day, type: 'dinner', meal: undefined })}
-                className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" /> Add
-              </button>
-            </div>
-            {getGeneralMeals().length === 0 ? (
-              <div className="card p-4 text-center">
-                <p className="text-sm text-stone-400">No general meals planned.</p>
-                <button
-                  onClick={() => setModal({ day: '' as Day, type: 'dinner' })}
-                  className="text-xs text-brand-600 hover:text-brand-700 font-medium mt-1"
-                >
-                  + Add a meal without a specific day
-                </button>
-              </div>
-            ) : (
-              <div className="card divide-y divide-stone-100 dark:divide-stone-800">
-                {getGeneralMeals().map(meal => (
-                  <div key={meal.id} className="flex items-center gap-3 px-4 py-3 group">
-                    <Utensils className="w-4 h-4 text-stone-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">
-                        {meal.recipe?.name ?? meal.custom_name}
-                      </p>
-                      <p className="text-xs text-stone-400">{MEAL_LABELS[meal.meal_type as MealType] ?? meal.meal_type}</p>
+                  {MEAL_TYPES.map(type => (
+                    <div key={type} className="mb-2">
+                      <p className="label mb-1.5">{MEAL_LABELS[type]}</p>
+                      <div className="grid grid-cols-7 gap-2">
+                        {DAYS.map(day => (
+                          <DayCell
+                            key={day}
+                            meals={getMeals(day, type)}
+                            mealType={type}
+                            members={members}
+                            onAdd={() => setModal({ day, type })}
+                            onEdit={(meal) => setModal({ day, type, meal })}
+                            onDelete={handleDeleteMeal}
+                            onDrop={(name, mealType) => handleDropMeal(name, mealType, day)}
+                          />
+                        ))}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleDeleteMeal(meal.id)}
-                      className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 transition-all"
-                    >
-                      <X className="w-3.5 h-3.5 text-red-400" />
-                    </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            )}
-          </div>
 
-          {/* Last week's meals — inspiration panel */}
-          <MealHistoryPanel
-            weekStart={weekStart}
-            onUseMeal={handleAddFromHistory}
-          />
+              {/* General meals */}
+              <FreeformSection
+                label="General this week"
+                type={null}
+                meals={getGeneralMeals()}
+                members={members}
+                onAdd={() => setModal({ day: '' as Day, type: 'dinner' })}
+                onDelete={handleDeleteMeal}
+              />
+            </>
+          )}
+
+          {/* Last week's meals */}
+          <MealHistoryPanel weekStart={weekStart} onUseMeal={handleAddFromHistory} />
 
           {totalMeals === 0 && (
             <p className="text-center text-stone-400 text-sm py-4">
@@ -410,18 +477,88 @@ export default function MealPlanner() {
   )
 }
 
+// ── Freeform section (breakfast / lunch / general) ───────────────────────────
+
+function FreeformSection({
+  label,
+  type,
+  meals,
+  members,
+  onAdd,
+  onDelete,
+}: {
+  label: string
+  type: MealType | null
+  meals: WeeklyPlanMeal[]
+  members: FamilyMember[]
+  onAdd: () => void
+  onDelete: (id: number) => void
+}) {
+  const colorClass = type ? MEAL_COLORS[type] : 'bg-stone-50 dark:bg-stone-800/50 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300'
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="label">{label}</h2>
+        <button
+          onClick={onAdd}
+          className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1"
+        >
+          <Plus className="w-3 h-3" /> Add
+        </button>
+      </div>
+      {meals.length === 0 ? (
+        <div className="card p-4 text-center">
+          <p className="text-sm text-stone-400">Nothing planned yet.</p>
+          <button onClick={onAdd} className="text-xs text-brand-600 hover:text-brand-700 font-medium mt-1">
+            + Add one
+          </button>
+        </div>
+      ) : (
+        <div className="card divide-y divide-stone-100 dark:divide-stone-800">
+          {meals.map(meal => {
+            const cook = meal.cook_member_id ? members.find(m => m.id === meal.cook_member_id) : null
+            return (
+              <div key={meal.id} className="flex items-center gap-3 px-4 py-3 group">
+                <Utensils className="w-4 h-4 text-stone-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">
+                    {meal.recipe?.name ?? meal.custom_name}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {meal.day_hint && (
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${colorClass}`}>
+                        {DAY_LABELS[meal.day_hint as Day]}
+                      </span>
+                    )}
+                    {type === null && (
+                      <span className="text-xs text-stone-400 capitalize">{meal.meal_type}</span>
+                    )}
+                    {cook && (
+                      <span className="text-xs text-stone-400">{cook.emoji || '🧑'} {cook.name}</span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onDelete(meal.id)}
+                  className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                >
+                  <X className="w-3.5 h-3.5 text-red-400" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Day cell ──────────────────────────────────────────────────────────────────
 
 const DEFAULT_EMOJIS: Record<string, string> = { kid: '🧒', teen: '👦', adult: '🧑' }
 
 function MemberAvatar({ member, size = 'sm' }: { member: FamilyMember; size?: 'sm' | 'chip' }) {
-  if (member.photo_path) {
-    // chip = inside day cell pill, sm = inside modal button
-    const cls = size === 'chip'
-      ? 'w-10 h-10 rounded-full object-cover inline-block'
-      : 'w-12 h-12 rounded-full object-cover inline-block'
-    return <img src={member.photo_path} alt={member.name} className={cls} />
-  }
   const textSize = size === 'chip' ? 'text-2xl' : 'text-3xl'
   return <span className={textSize}>{member.emoji || DEFAULT_EMOJIS[member.age_group] || '🧑'}</span>
 }
@@ -468,14 +605,15 @@ function DayCell({
         const cook = meal.cook_member_id
           ? members.find(m => m.id === meal.cook_member_id)
           : null
+        const isDinner = mealType === 'dinner'
         return (
           <div
             key={meal.id}
-            className={`rounded-md border px-1.5 py-1 text-[11px] font-medium leading-tight cursor-pointer flex flex-col gap-0.5 group ${colorClass}`}
+            className={`rounded-md border px-1.5 py-1.5 font-medium leading-snug cursor-pointer flex flex-col gap-0.5 group ${colorClass} ${isDinner ? 'text-xs' : 'text-[11px]'}`}
           >
             <div className="flex items-start justify-between gap-1">
               <span
-                className="flex-1 truncate cursor-pointer"
+                className={`flex-1 cursor-pointer ${isDinner ? '' : 'truncate'}`}
                 onClick={() => onEdit(meal)}
                 title={meal.recipe?.name ?? meal.custom_name ?? ''}
               >
@@ -600,7 +738,6 @@ function MealModal({
               <label className="label block mb-1">Meal</label>
               <select className="input" value={selectedType} onChange={e => setSelectedType(e.target.value as MealType)}>
                 {MEAL_TYPES.map(t => <option key={t} value={t}>{MEAL_LABELS[t]}</option>)}
-                <option value="snack">Snack</option>
               </select>
             </div>
           </div>
