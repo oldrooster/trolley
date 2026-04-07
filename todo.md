@@ -1,7 +1,21 @@
-1. I can't add ingredients on a manual recipe!
-2. Ingredients on manual recipe should lookup from the catalogue
-3. recipes should indicate if they are a breakfast/lunch/dinner/dessert
-4. When I click Edit on a reipe I get a blank page: Error in dev tools:
+1. I can't add ingredients on a manual recipe!. I get
+```
+index-iO7j07-X.js:270 Uncaught TypeError: t is not iterable
+    at Ul (index-iO7j07-X.js:270:13269)
+    at M (index-iO7j07-X.js:270:25499)
+    at Object.Of (index-iO7j07-X.js:37:9855)
+    at Af (index-iO7j07-X.js:37:10009)
+    at Ff (index-iO7j07-X.js:37:10066)
+    at yi (index-iO7j07-X.js:37:31439)
+    at kc (index-iO7j07-X.js:37:31856)
+    at index-iO7j07-X.js:37:36769
+    at _o (index-iO7j07-X.js:40:36868)
+    at Wu (index-iO7j07-X.js:37:8991)
+```
+2. 
+3. Ingredients on manual recipe should lookup from the catalogue
+4. recipes should indicate if they are a breakfast/lunch/dinner/dessert
+5. When I click Edit on a reipe I get a blank page: Error in dev tools:
   ```index-iO7j07-X.js:40 TypeError: t is not iterable
       at Ul (index-iO7j07-X.js:270:13269)
       at index-iO7j07-X.js:270:23910
