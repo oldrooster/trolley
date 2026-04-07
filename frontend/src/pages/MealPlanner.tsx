@@ -179,10 +179,6 @@ export default function MealPlanner() {
     return plan.meals.filter(m => !m.day_hint)
   }
 
-  function getMealsByType(type: MealType): WeeklyPlanMeal[] {
-    if (!plan) return []
-    return plan.meals.filter(m => m.meal_type === type)
-  }
 
   async function handleSaveMeal(payload: {
     meal_type: string
