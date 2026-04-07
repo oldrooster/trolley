@@ -352,29 +352,38 @@ export default function MealPlanner() {
                           </p>
                         </div>
                         {/* Meals */}
-                        <div className="flex-1 flex flex-wrap gap-1.5 items-center min-w-0">
+                        <div className="flex-1 flex flex-col gap-1.5 min-w-0">
                           {meals.map(meal => (
-                            <div
-                              key={meal.id}
-                              className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium cursor-pointer group ${MEAL_COLORS['dinner']}`}
-                              onClick={() => setModal({ day, type: 'dinner', meal })}
-                            >
-                              <span className="max-w-[140px] truncate">{meal.recipe?.name ?? meal.custom_name}</span>
-                              {cook(meal) && <span className="shrink-0">{cook(meal)!.emoji || '🧑'}</span>}
-                              <button
-                                onClick={e => { e.stopPropagation(); handleDeleteMeal(meal.id) }}
-                                className="shrink-0 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all ml-0.5"
+                            <div key={meal.id} className="flex items-center gap-1.5 w-full group">
+                              <div
+                                className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-sm font-medium cursor-pointer flex-1 min-w-0 ${MEAL_COLORS['dinner']}`}
+                                onClick={() => setModal({ day, type: 'dinner', meal })}
                               >
-                                <X className="w-2.5 h-2.5" />
+                                {cook(meal) && <MemberAvatar member={cook(meal)!} size="chip" />}
+                                <span className="flex-1 min-w-0">{meal.recipe?.name ?? meal.custom_name}</span>
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleDeleteMeal(meal.id) }}
+                                  className="shrink-0 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                              <button
+                                onClick={() => setModal({ day, type: 'dinner' })}
+                                className="shrink-0 opacity-0 group-hover:opacity-100 text-stone-300 hover:text-brand-500 transition-all"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           ))}
-                          <button
-                            onClick={() => setModal({ day, type: 'dinner' })}
-                            className="text-stone-300 dark:text-stone-600 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-md p-1 transition-colors"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
+                          {meals.length === 0 && (
+                            <button
+                              onClick={() => setModal({ day, type: 'dinner' })}
+                              className="text-stone-300 dark:text-stone-600 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-md p-1 transition-colors self-start"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     )
@@ -531,7 +540,7 @@ function FreeformSection({
                       <span className="text-xs text-stone-400 capitalize">{meal.meal_type}</span>
                     )}
                     {cook && (
-                      <span className="text-xs text-stone-400">{cook.emoji || '🧑'} {cook.name}</span>
+                      <span className="flex items-center gap-1 text-xs text-stone-400"><MemberAvatar member={cook} size="chip" /> {cook.name}</span>
                     )}
                   </div>
                 </div>
@@ -552,11 +561,16 @@ function FreeformSection({
 
 // ── Day cell ──────────────────────────────────────────────────────────────────
 
-const DEFAULT_EMOJIS: Record<string, string> = { kid: '🧒', teen: '👦', adult: '🧑' }
-
 function MemberAvatar({ member, size = 'sm' }: { member: FamilyMember; size?: 'sm' | 'chip' }) {
-  const textSize = size === 'chip' ? 'text-2xl' : 'text-3xl'
-  return <span className={textSize}>{member.emoji || DEFAULT_EMOJIS[member.age_group] || '🧑'}</span>
+  const dim = size === 'chip' ? 'w-7 h-7 text-xs' : 'w-9 h-9 text-sm'
+  if (member.photo_path) {
+    return <img src={member.photo_path} alt={member.name} className={`${dim} rounded-full object-cover inline-block`} />
+  }
+  return (
+    <span className={`${dim} rounded-full bg-stone-200 dark:bg-stone-600 text-stone-600 dark:text-stone-300 font-semibold flex items-center justify-center inline-flex shrink-0`}>
+      {member.name.charAt(0).toUpperCase()}
+    </span>
+  )
 }
 
 function DayCell({
