@@ -15,7 +15,7 @@ export interface ProductPayload {
   category_id: number | null
   base_name: string
   variant_name: string | null
-  brand_name: string | null
+  full_name: string | null
   unit: string
 }
 
@@ -26,7 +26,7 @@ export default function ProductModal({ product, prefillProduct, categories, exis
     category_id: product?.category_id ?? prefillProduct?.category_id ?? null,
     base_name: product?.base_name ?? prefillProduct?.base_name ?? '',
     variant_name: product?.variant_name ?? null,
-    brand_name: product?.brand_name ?? null,
+    full_name: product?.full_name ?? null,
     unit: product?.unit ?? prefillProduct?.unit ?? 'each',
   })
   const [saving, setSaving] = useState(false)
@@ -147,11 +147,11 @@ export default function ProductModal({ product, prefillProduct, categories, exis
           </div>
 
           <div>
-            <label className="label block mb-1">Brand / Full product name <span className="text-stone-300 dark:text-stone-600">(optional)</span></label>
+            <label className="label block mb-1">Full Name <span className="text-stone-300 dark:text-stone-600">(optional)</span></label>
             <input
               className="input"
-              value={form.brand_name ?? ''}
-              onChange={e => set('brand_name', e.target.value)}
+              value={form.full_name ?? ''}
+              onChange={e => set('full_name', e.target.value)}
               placeholder="e.g. Bluebird Salt & Vinegar 150g"
             />
           </div>

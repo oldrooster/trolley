@@ -43,11 +43,11 @@ def search_catalogue(
             tier = 0
         elif p.variant_name and q_lower in p.variant_name.lower():
             tier = 1
-        elif p.brand_name and q_lower in p.brand_name.lower():
+        elif p.full_name and q_lower in p.full_name.lower():
             tier = 2
         else:
             tier = 3
-        specificity = (1 if p.variant_name else 0) + (1 if p.brand_name else 0)
+        specificity = (1 if p.variant_name else 0) + (1 if p.full_name else 0)
         return (tier, specificity)
 
     return sorted(products, key=_sort_key)

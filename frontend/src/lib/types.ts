@@ -10,7 +10,7 @@ export interface Product {
   category?: Category
   base_name: string
   variant_name?: string
-  brand_name?: string
+  full_name?: string
   unit: string
   created_at: string
   // Computed display name

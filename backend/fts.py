@@ -10,29 +10,29 @@ FTS_SETUP_SQL = """
 CREATE VIRTUAL TABLE IF NOT EXISTS products_fts USING fts5(
     base_name,
     variant_name,
-    brand_name,
+    full_name,
     content='products',
     content_rowid='id'
 );
 
 CREATE TRIGGER IF NOT EXISTS products_fts_ai
 AFTER INSERT ON products BEGIN
-    INSERT INTO products_fts(rowid, base_name, variant_name, brand_name)
-    VALUES (new.id, new.base_name, COALESCE(new.variant_name, ''), COALESCE(new.brand_name, ''));
+    INSERT INTO products_fts(rowid, base_name, variant_name, full_name)
+    VALUES (new.id, new.base_name, COALESCE(new.variant_name, ''), COALESCE(new.full_name, ''));
 END;
 
 CREATE TRIGGER IF NOT EXISTS products_fts_ad
 AFTER DELETE ON products BEGIN
-    INSERT INTO products_fts(products_fts, rowid, base_name, variant_name, brand_name)
-    VALUES ('delete', old.id, old.base_name, COALESCE(old.variant_name, ''), COALESCE(old.brand_name, ''));
+    INSERT INTO products_fts(products_fts, rowid, base_name, variant_name, full_name)
+    VALUES ('delete', old.id, old.base_name, COALESCE(old.variant_name, ''), COALESCE(old.full_name, ''));
 END;
 
 CREATE TRIGGER IF NOT EXISTS products_fts_au
 AFTER UPDATE ON products BEGIN
-    INSERT INTO products_fts(products_fts, rowid, base_name, variant_name, brand_name)
-    VALUES ('delete', old.id, old.base_name, COALESCE(old.variant_name, ''), COALESCE(old.brand_name, ''));
-    INSERT INTO products_fts(rowid, base_name, variant_name, brand_name)
-    VALUES (new.id, new.base_name, COALESCE(new.variant_name, ''), COALESCE(new.brand_name, ''));
+    INSERT INTO products_fts(products_fts, rowid, base_name, variant_name, full_name)
+    VALUES ('delete', old.id, old.base_name, COALESCE(old.variant_name, ''), COALESCE(old.full_name, ''));
+    INSERT INTO products_fts(rowid, base_name, variant_name, full_name)
+    VALUES (new.id, new.base_name, COALESCE(new.variant_name, ''), COALESCE(new.full_name, ''));
 END;
 """
 
@@ -52,8 +52,8 @@ def rebuild_fts(db: Session) -> None:
     """Rebuild FTS index from current products table (run after bulk seed)."""
     db.execute(text("DELETE FROM products_fts"))
     db.execute(text("""
-        INSERT INTO products_fts(rowid, base_name, variant_name, brand_name)
-        SELECT id, base_name, COALESCE(variant_name, ''), COALESCE(brand_name, '')
+        INSERT INTO products_fts(rowid, base_name, variant_name, full_name)
+        SELECT id, base_name, COALESCE(variant_name, ''), COALESCE(full_name, '')
         FROM products
     """))
     db.commit()

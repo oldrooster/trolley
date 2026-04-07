@@ -65,7 +65,7 @@ Extract all purchased items and return valid JSON matching this exact schema —
       "total_price": 4.99,
       "suggested_base_name": "Milk",
       "suggested_variant_name": "Blue Top",
-      "suggested_brand_name": "Anchor Blue Top Milk 2L",
+      "suggested_full_name": "Anchor Blue Top Milk 2L",
       "suggested_category": "Dairy",
       "suggested_unit": "L"
     }
@@ -85,7 +85,7 @@ Rules:
   - suggested_variant_name: the specific variety e.g. "Blue Top", "Salt & Vinegar", "Sourdough" — null if generic
     - For Produce: do NOT use "Fresh" as a variant — fresh is implied. Use variety names instead e.g. "Granny Smith", "Braeburn". If the only distinguishing word is "Fresh", set variant to null.
     - For Dairy/Bakery: do NOT use "Fresh" as a variant either.
-  - suggested_brand_name: full brand+product name e.g. "Anchor Blue Top Milk 2L" — null if no clear brand
+  - suggested_full_name: full brand+product name e.g. "Anchor Blue Top Milk 2L" — null if no clear brand
   - suggested_category: one of "Dairy", "Bakery", "Produce", "Meat & Seafood", "Pantry", "Breakfast", "Snacks", "Drinks", "Frozen", "Household", "Condiments" — pick the best fit
   - suggested_unit: one of "each", "kg", "g", "L", "mL", "dozen", "bunch", "bag", "box", "pack"
 - Return ONLY valid JSON with no markdown fences"""

@@ -25,7 +25,7 @@ class Product(Base):
     category_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("categories.id"), nullable=True)
     base_name: Mapped[str] = mapped_column(String, nullable=False)
     variant_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    brand_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    full_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     unit: Mapped[str] = mapped_column(String, default="each")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -36,8 +36,8 @@ class Product(Base):
 
     @property
     def display_name(self) -> str:
-        if self.brand_name:
-            return self.brand_name
+        if self.full_name:
+            return self.full_name
         if self.variant_name:
             return f"{self.variant_name} {self.base_name}"
         return self.base_name

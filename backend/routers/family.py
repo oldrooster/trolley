@@ -92,12 +92,20 @@ async def upload_photo(member_id: int, file: UploadFile = File(...), db: Session
     try:
         from PIL import Image
         img = Image.open(io.BytesIO(content))
-        img = img.convert("RGB")
-        img.thumbnail((200, 200), Image.LANCZOS)
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=85)
+        has_alpha = img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info)
+        if has_alpha:
+            img = img.convert("RGBA")
+            img.thumbnail((200, 200), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="PNG", optimize=True)
+            ext = ".png"
+        else:
+            img = img.convert("RGB")
+            img.thumbnail((200, 200), Image.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            ext = ".jpg"
         content = buf.getvalue()
-        ext = ".jpg"
     except Exception:
         ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
 

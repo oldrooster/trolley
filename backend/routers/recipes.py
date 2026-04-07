@@ -138,7 +138,7 @@ def save_ingredients(db: Session, recipe_id: int, ingredients: list[IngredientIn
             existing = db.query(Product).filter(
                 Product.base_name == base,
                 Product.variant_name == variant if variant else Product.variant_name.is_(None),
-                Product.brand_name.is_(None),
+                Product.full_name.is_(None),
             ).first()
             if existing:
                 product_id = existing.id

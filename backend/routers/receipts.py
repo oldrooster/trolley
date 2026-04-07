@@ -35,7 +35,7 @@ class ReceiptItemDraft(BaseModel):
     # AI-suggested catalogue fields (for when there's no match)
     suggested_base_name: str | None = None
     suggested_variant_name: str | None = None
-    suggested_brand_name: str | None = None
+    suggested_full_name: str | None = None
     suggested_category: str | None = None
     suggested_unit: str | None = None
 
@@ -59,7 +59,7 @@ class ConfirmItem(BaseModel):
     # Override fields used when create_product=True
     new_base_name: str | None = None
     new_variant_name: str | None = None
-    new_brand_name: str | None = None
+    new_full_name: str | None = None
     new_category_id: int | None = None
     new_unit: str | None = None
 
@@ -123,21 +123,21 @@ def _get_or_create_product(
     db: Session,
     base_name: str,
     variant_name: str | None,
-    brand_name: str | None,
+    full_name: str | None,
     category_id: int | None,
     unit: str,
 ) -> Product:
     """Return an existing product matching these fields exactly, or create it."""
     q = db.query(Product).filter(Product.base_name == base_name)
     q = q.filter(Product.variant_name == variant_name)
-    q = q.filter(Product.brand_name == brand_name)
+    q = q.filter(Product.full_name == full_name)
     existing = q.first()
     if existing:
         return existing
     p = Product(
         base_name=base_name,
         variant_name=variant_name,
-        brand_name=brand_name,
+        full_name=full_name,
         category_id=category_id,
         unit=unit,
     )
@@ -154,7 +154,7 @@ def _fuzzy_match_product(db: Session, raw_name: str) -> Product | None:
     best: Product | None = None
     best_score = 0
     for product in products:
-        for field in [product.base_name, product.variant_name, product.brand_name]:
+        for field in [product.base_name, product.variant_name, product.full_name]:
             if field and field.lower() in raw_lower:
                 score = len(field)
                 if score > best_score:
@@ -243,7 +243,7 @@ async def upload_receipt(file: UploadFile = File(...), db: Session = Depends(get
                 matched_category_icon=matched_category_icon,
                 suggested_base_name=item.get("suggested_base_name"),
                 suggested_variant_name=item.get("suggested_variant_name"),
-                suggested_brand_name=item.get("suggested_brand_name"),
+                suggested_full_name=item.get("suggested_full_name"),
                 suggested_category=suggested_category,
                 suggested_unit=item.get("suggested_unit"),
             ))
@@ -291,20 +291,20 @@ def confirm_receipt(receipt_id: int, body: ConfirmBody, db: Session = Depends(ge
         if item.create_product and not product_id:
             base = (item.new_base_name or item.raw_name).strip().title()
             variant = _clean_variant(item.new_variant_name)
-            brand = item.new_brand_name or None
+            full = item.new_full_name or None
             category_id = item.new_category_id or None
             unit = item.new_unit or "each"
 
             # Always ensure a base-only entry exists
             _get_or_create_product(db, base, None, None, category_id, unit)
 
-            # If there's a variant, ensure base+variant (no brand) exists
+            # If there's a variant, ensure base+variant (no full name) exists
             if variant:
                 _get_or_create_product(db, base, variant, None, category_id, unit)
 
-            # Create/get the full entry and link the receipt item to it
-            full = _get_or_create_product(db, base, variant, brand, category_id, unit)
-            product_id = full.id
+            # Create/get the specific entry and link the receipt item to it
+            product = _get_or_create_product(db, base, variant, full, category_id, unit)
+            product_id = product.id
 
         db.add(ReceiptItem(
             receipt_id=receipt_id,

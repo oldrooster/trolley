@@ -356,8 +356,8 @@ function VariantGroup({
   const [open, setOpen] = useState(true)
   useEffect(() => { if (expandSignal != null) setOpen(expandSignal.expand) }, [expandSignal])
   // Bare variant product (no brand) represents the variant itself
-  const variantProduct = products.find(p => !p.brand_name) ?? products[0]
-  const brandRows = products.filter(p => p.brand_name)
+  const variantProduct = products.find(p => !p.full_name) ?? products[0]
+  const brandRows = products.filter(p => p.full_name)
 
   return (
     <div>
@@ -374,7 +374,7 @@ function VariantGroup({
       {open && brandRows.map(p => (
         <ItemRow
           key={p.id}
-          name={p.brand_name!}
+          name={p.full_name!}
           unit={p.unit}
           indent={2}
           onEdit={() => onEdit(p)}
@@ -398,13 +398,13 @@ function BaseGroup({
 }) {
   const [open, setOpen] = useState(true)
   useEffect(() => { if (expandSignal != null) setOpen(expandSignal.expand) }, [expandSignal])
-  const baseProduct = products.find(p => !p.variant_name && !p.brand_name) ?? products[0]
+  const baseProduct = products.find(p => !p.variant_name && !p.full_name) ?? products[0]
   const baseName = baseProduct.base_name
 
   // Products with a variant_name → grouped into VariantGroups
   const withVariant = products.filter(p => p.variant_name)
-  // Products with only a brand_name (no variant_name) → flat brand rows directly under base
-  const brandOnly = products.filter(p => p.brand_name && !p.variant_name)
+  // Products with only a full_name (no variant_name) → flat brand rows directly under base
+  const brandOnly = products.filter(p => p.full_name && !p.variant_name)
 
   const variantGroups = Object.values(
     withVariant.reduce<Record<string, Product[]>>((acc, p) => {
@@ -443,7 +443,7 @@ function BaseGroup({
           {brandOnly.map(p => (
             <ItemRow
               key={p.id}
-              name={p.brand_name!}
+              name={p.full_name!}
               unit={p.unit}
               indent={1}
               onEdit={() => onEdit(p)}

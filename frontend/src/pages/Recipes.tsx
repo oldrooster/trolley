@@ -57,7 +57,7 @@ function fuzzyMatchProduct(name: string, products: Product[]): Product | null {
   let best: Product | null = null
   let bestScore = 0
   for (const p of products) {
-    for (const field of [p.base_name, p.variant_name, p.brand_name]) {
+    for (const field of [p.base_name, p.variant_name, p.full_name]) {
       if (!field) continue
       const fl = field.toLowerCase()
       if (lower.includes(fl) || fl.includes(lower)) {
@@ -840,7 +840,7 @@ function RecipeForm({
                         {matched.category?.icon && <span>{matched.category.icon}</span>}
                         <span>{matched.base_name}</span>
                         {matched.variant_name && <span className="opacity-75">· {matched.variant_name}</span>}
-                        {matched.brand_name && <span className="opacity-60 font-normal">({matched.brand_name})</span>}
+                        {matched.full_name && <span className="opacity-60 font-normal">({matched.full_name})</span>}
                       </span>
                       <button
                         type="button"
@@ -898,7 +898,7 @@ function RecipeForm({
                                   {p.category?.icon && <span>{p.category.icon}</span>}
                                   <span>{p.base_name}</span>
                                   {p.variant_name && <span className="opacity-75">· {p.variant_name}</span>}
-                                  {p.brand_name && <span className="opacity-60">({p.brand_name})</span>}
+                                  {p.full_name && <span className="opacity-60">({p.full_name})</span>}
                                 </span>
                               </button>
                             )) : (

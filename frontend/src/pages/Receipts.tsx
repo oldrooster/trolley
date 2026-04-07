@@ -47,7 +47,7 @@ interface ExtractionItem {
   matched_category_icon: string | null
   suggested_base_name: string | null
   suggested_variant_name: string | null
-  suggested_brand_name: string | null
+  suggested_full_name: string | null
   suggested_category: string | null
   suggested_unit: string | null
 }
@@ -67,7 +67,7 @@ interface ReviewItem extends ExtractionItem {
   // Editable catalogue fields (pre-filled from AI suggestions, user can override)
   new_base_name: string
   new_variant_name: string
-  new_brand_name: string
+  new_full_name: string
   new_category_id: number | null
   new_unit: string
   // UI state
@@ -145,7 +145,7 @@ export default function Receipts() {
       skip: false,
       new_base_name: item.suggested_base_name ?? item.raw_name,
       new_variant_name: item.suggested_variant_name ?? '',
-      new_brand_name: item.suggested_brand_name ?? '',
+      new_full_name: item.suggested_full_name ?? '',
       new_category_id: resolveCategoryId(item.suggested_category),
       new_unit: item.suggested_unit ?? 'each',
       overriding_match: false,
@@ -176,7 +176,7 @@ export default function Receipts() {
           skip: item.skip,
           new_base_name: item.new_base_name,
           new_variant_name: item.new_variant_name || null,
-          new_brand_name: item.new_brand_name || null,
+          new_full_name: item.new_full_name || null,
           new_category_id: item.new_category_id,
           new_unit: item.new_unit,
         })),
@@ -682,11 +682,11 @@ function ReviewItemRow({
               />
             </div>
             <div>
-              <label className="text-xs text-stone-400 block mb-0.5">Brand / full name</label>
+              <label className="text-xs text-stone-400 block mb-0.5">Full Name</label>
               <input
                 className="input text-xs py-1.5"
-                value={item.new_brand_name}
-                onChange={e => onChange({ new_brand_name: e.target.value })}
+                value={item.new_full_name}
+                onChange={e => onChange({ new_full_name: e.target.value })}
                 placeholder="e.g. Bluebird S&V 150g"
               />
             </div>

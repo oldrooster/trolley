@@ -32,6 +32,14 @@ def _migrate(db):
         except Exception:
             db.rollback()  # column already exists — safe to ignore
 
+    # Rename brand_name → full_name
+    try:
+        import sqlalchemy as sa
+        db.execute(sa.text("ALTER TABLE products RENAME COLUMN brand_name TO full_name"))
+        db.commit()
+    except Exception:
+        db.rollback()  # already renamed — safe to ignore
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -231,11 +231,11 @@ function groupSuggestions(products: Product[]): { product: Product; isVariant: b
     // Sort within group: base-only (0) → variant-only (1) → brand/full (2)
     const sorted = [...group].sort((a, b) => {
       const tier = (p: Product) =>
-        !p.variant_name && !p.brand_name ? 0 : !p.brand_name ? 1 : 2
+        !p.variant_name && !p.full_name ? 0 : !p.full_name ? 1 : 2
       return tier(a) - tier(b)
     })
-    const base = sorted.find(p => !p.variant_name && !p.brand_name)
-    const rest = sorted.filter(p => p.variant_name || p.brand_name)
+    const base = sorted.find(p => !p.variant_name && !p.full_name)
+    const rest = sorted.filter(p => p.variant_name || p.full_name)
     if (base) {
       result.push({ product: base, isVariant: false })
       rest.forEach(p => result.push({ product: p, isVariant: true }))
@@ -359,10 +359,10 @@ function AddItemRow({ onAdd }: { onAdd: (p: AddItemPayload) => Promise<void> }) 
                 {item.isVariant && <span className="text-stone-300 dark:text-stone-600 text-xs shrink-0">↳</span>}
                 <span className={item.isVariant ? 'text-stone-700 dark:text-stone-300' : 'font-medium'}>
                   {item.isVariant
-                    ? (item.product.brand_name ?? (item.product.variant_name ? `${item.product.variant_name} ${item.product.base_name}` : item.product.base_name))
-                    : item.product.base_name}
+                    ? (item.product.full_name ?? (item.product.variant_name ? `${item.product.variant_name} ${item.product.base_name}` : item.product.base_name))
+                    : (item.product.display_name ?? item.product.base_name)}
                 </span>
-                {!item.isVariant && item.product.variant_name && (
+                {!item.isVariant && !item.product.variant_name && !item.product.full_name && (
                   <span className="text-xs text-stone-400">any variety</span>
                 )}
               </span>
