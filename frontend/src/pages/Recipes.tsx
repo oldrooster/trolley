@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   BookOpen, Search, X, Clock, Users, Pencil, Trash2,
   Link, Sparkles, ChevronLeft, Upload, CheckCircle, Package
@@ -68,6 +68,7 @@ export function QuickBadge() {
 }
 import { CardGridSkeleton } from '../components/Skeleton'
 import { useToast } from '../components/Toast'
+import { useDebounce } from '../hooks/useDebounce'
 
 function fuzzyMatchProduct(name: string, products: Product[]): Product | null {
   const lower = name.toLowerCase()
@@ -576,6 +577,11 @@ function RecipeForm({
   const [ingInput, setIngInput] = useState('')
   const [ingQty, setIngQty] = useState('')
   const [ingUnit, setIngUnit] = useState('')
+  const [ingSuggestions, setIngSuggestions] = useState<Product[]>([])
+  const [ingShowSuggestions, setIngShowSuggestions] = useState(false)
+  const [ingSelectedProduct, setIngSelectedProduct] = useState<Product | null>(null)
+  const ingInputRef = useRef<HTMLInputElement>(null)
+  const debouncedIngInput = useDebounce(ingInput, 200)
   const [overrideIdx, setOverrideIdx] = useState<number | null>(null)
   const [overrideSearch, setOverrideSearch] = useState('')
   const [overrideResults, setOverrideResults] = useState<Product[]>([])
@@ -599,6 +605,20 @@ function RecipeForm({
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Live catalogue search for the add-ingredient input
+  useEffect(() => {
+    if (debouncedIngInput.trim().length < 2) {
+      setIngSuggestions([])
+      return
+    }
+    // Don't re-search if the user just selected a suggestion
+    if (ingSelectedProduct && ingSelectedProduct.base_name === debouncedIngInput.trim()) return
+    api.catalogue.search(debouncedIngInput.trim())
+      .then(r => setIngSuggestions(r as Product[]))
+      .catch(() => setIngSuggestions([]))
+  }, [debouncedIngInput, ingSelectedProduct])
+
   const [editIngIdx, setEditIngIdx] = useState<number | null>(null)
   const [editIngName, setEditIngName] = useState('')
   const [editIngQty, setEditIngQty] = useState('')
@@ -621,20 +641,23 @@ function RecipeForm({
 
   function addIngredient() {
     if (!ingInput.trim()) return
-    const match = fuzzyMatchProduct(ingInput.trim(), products)
+    const product = ingSelectedProduct ?? fuzzyMatchProduct(ingInput.trim(), products)
     setForm(prev => ({
       ...prev,
       ingredients: [...prev.ingredients, {
         ingredient_name: ingInput.trim(),
         quantity: ingQty ? parseFloat(ingQty) : undefined,
         unit: ingUnit || undefined,
-        product_id: match?.id,
-        guessed_category_id: match?.category_id ?? undefined,
+        product_id: product?.id,
+        guessed_category_id: product?.category_id ?? undefined,
       }]
     }))
     setIngInput('')
     setIngQty('')
     setIngUnit('')
+    setIngSelectedProduct(null)
+    setIngSuggestions([])
+    setIngShowSuggestions(false)
   }
 
   function removeIngredient(idx: number) {
@@ -1003,14 +1026,58 @@ function RecipeForm({
           })}
         </div>
         {/* Add row */}
-        <div className="flex gap-2 pt-1">
-          <input
-            className="input flex-1"
-            value={ingInput}
-            onChange={e => setIngInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addIngredient() } }}
-            placeholder="Ingredient name…"
-          />
+        <div className="flex gap-2 pt-1 relative">
+          <div className="flex-1 relative">
+            <input
+              ref={ingInputRef}
+              className="input w-full"
+              value={ingInput}
+              onChange={e => {
+                setIngInput(e.target.value)
+                setIngSelectedProduct(null)
+                setIngShowSuggestions(true)
+              }}
+              onFocus={() => setIngShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setIngShowSuggestions(false), 150)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); addIngredient() }
+                if (e.key === 'Escape') { setIngShowSuggestions(false) }
+              }}
+              placeholder="Ingredient name…"
+            />
+            {ingShowSuggestions && ingSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg z-30 max-h-52 overflow-y-auto">
+                {ingSuggestions.map(p => {
+                  const label = [p.base_name, p.variant_name].filter(Boolean).join(' · ')
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-brand-50 dark:hover:bg-brand-900/20 text-stone-700 dark:text-stone-300 flex items-center gap-2"
+                      onMouseDown={() => {
+                        setIngInput(p.variant_name ? `${p.variant_name} ${p.base_name}` : p.base_name)
+                        setIngSelectedProduct(p)
+                        if (!ingUnit) setIngUnit(p.unit !== 'each' ? p.unit : '')
+                        setIngShowSuggestions(false)
+                        setExtraProducts(prev => new Map(prev).set(p.id, p))
+                        ingInputRef.current?.focus()
+                      }}
+                    >
+                      {p.category?.icon && <span className="shrink-0">{p.category.icon}</span>}
+                      <span className="flex-1">
+                        <span className="font-medium">{p.base_name}</span>
+                        {p.variant_name && <span className="text-stone-400 ml-1">· {p.variant_name}</span>}
+                        {p.full_name && <span className="text-stone-400 text-xs ml-1">({p.full_name})</span>}
+                      </span>
+                      {p.unit !== 'each' && (
+                        <span className="text-xs text-stone-400 shrink-0">{p.unit}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
           <input
             className="input w-16 text-center"
             value={ingQty}
