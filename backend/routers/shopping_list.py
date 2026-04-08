@@ -201,10 +201,17 @@ def add_from_meals(body: AddFromMealsBody, db: Session = Depends(get_db)):
 
     active = get_or_create_active(db)
 
-    # ── Accumulate ingredients, keyed per meal so we can do partial merges ─────
-    # acc[ingredient_key][meal_id] = (qty, unit, custom_name, recipe_name)
+    # ── Accumulate ingredients ────────────────────────────────────────────────
+    # Key: (product_id, unit) or (ingredient_name, unit) — different units are
+    # intentionally separate keys so they become separate list items (Option 2).
+    # acc[key][meal_id] = (qty, unit, custom_name, recipe_name)
     IngEntry = tuple  # (qty, unit, custom_name, recipe_name)
-    acc: dict[int | str, dict[int, IngEntry]] = {}
+    # Using tuple key: (product_id_or_name, normalised_unit)
+    acc: dict[tuple, dict[int, IngEntry]] = {}
+
+    def _unit_key(unit: str | None) -> str:
+        """Normalise unit string for grouping — same unit spelt differently still groups."""
+        return (unit or '').strip().lower()
 
     for meal_id in body.meal_ids:
         meal = (
@@ -220,12 +227,12 @@ def add_from_meals(body: AddFromMealsBody, db: Session = Depends(get_db)):
             RecipeIngredient.recipe_id == meal.recipe_id
         ).all()
         for ing in ingredients:
-            key: int | str = ing.product_id if ing.product_id else ing.ingredient_name
+            ing_id: int | str = ing.product_id if ing.product_id else ing.ingredient_name
+            key = (ing_id, _unit_key(ing.unit))
             qty = ing.quantity or 1.0
             if key not in acc:
                 acc[key] = {}
             if meal_id in acc[key]:
-                # Same meal_id contributing twice to the same key — sum qty
                 prev = acc[key][meal_id]
                 acc[key][meal_id] = (prev[0] + qty, prev[1], prev[2], prev[3])
             else:
@@ -237,23 +244,23 @@ def add_from_meals(body: AddFromMealsBody, db: Session = Depends(get_db)):
                 )
 
     # ── Merge into the active list ────────────────────────────────────────────
-    existing_by_product: dict[int, ShoppingListItem] = {
-        item.product_id: item
+    # Key on (product_id, normalised unit) so different-unit entries are distinct.
+    existing_by_product_unit: dict[tuple, ShoppingListItem] = {
+        (item.product_id, _unit_key(item.unit)): item
         for item in active.items
         if item.product_id
     }
 
-    for key, per_meal in acc.items():
-        if isinstance(key, int):
-            if key in existing_by_product:
-                existing = existing_by_product[key]
+    for (ing_id, unit_key), per_meal in acc.items():
+        if isinstance(ing_id, int):
+            lookup = (ing_id, unit_key)
+            if lookup in existing_by_product_unit:
+                existing = existing_by_product_unit[lookup]
                 existing_ids = set(existing.source_meal_ids or [])
-                # Only process meal IDs not yet applied to THIS item
                 new_meals = {mid: data for mid, data in per_meal.items() if mid not in existing_ids}
                 if not new_meals:
                     continue
-                added_qty = sum(d[0] for d in new_meals.values())
-                existing.quantity += added_qty
+                existing.quantity += sum(d[0] for d in new_meals.values())
                 existing_meals = list(existing.source_meals or [])
                 merged_ids = list(existing_ids)
                 for mid, (_, _, _, rname) in new_meals.items():
@@ -269,7 +276,7 @@ def add_from_meals(body: AddFromMealsBody, db: Session = Depends(get_db)):
                 meal_ids = sorted(per_meal.keys())
                 db.add(ShoppingListItem(
                     list_id=active.id,
-                    product_id=key,
+                    product_id=ing_id,
                     quantity=total_qty,
                     unit=unit,
                     source_meals=meal_names,

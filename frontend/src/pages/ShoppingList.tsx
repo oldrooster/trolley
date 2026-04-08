@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
-  ShoppingCart, Plus, Check, Trash2, Archive, ChevronDown, ChevronUp, X
+  ShoppingCart, Plus, Check, Trash2, Archive, ChevronDown, ChevronUp, X, TriangleAlert
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { ShoppingList, ShoppingListItem, Product } from '../lib/types'
@@ -98,6 +98,16 @@ export default function ShoppingListPage() {
   // Group unchecked by category
   const grouped = groupByCategory(unchecked)
 
+  // Product IDs that appear more than once (different units) across the whole list
+  const productIdCounts = new Map<number, number>()
+  for (const item of unchecked) {
+    if (item.product_id != null)
+      productIdCounts.set(item.product_id, (productIdCounts.get(item.product_id) ?? 0) + 1)
+  }
+  const duplicatedProductIds = new Set(
+    [...productIdCounts.entries()].filter(([, count]) => count > 1).map(([id]) => id)
+  )
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -152,6 +162,7 @@ export default function ShoppingListPage() {
               <ListItemRow
                 key={item.id}
                 item={item}
+                warn={item.product_id != null && duplicatedProductIds.has(item.product_id)}
                 onToggle={handleToggle}
                 onQtyChange={handleQtyChange}
                 onDelete={handleDelete}
@@ -391,15 +402,18 @@ function AddItemRow({ onAdd }: { onAdd: (p: AddItemPayload) => Promise<void> }) 
 
 function ListItemRow({
   item,
+  warn = false,
   onToggle,
   onQtyChange,
   onDelete,
 }: {
   item: ShoppingListItem
+  warn?: boolean
   onToggle: (item: ShoppingListItem) => void
   onQtyChange: (item: ShoppingListItem, qty: number) => void
   onDelete: (id: number) => void
 }) {
+  const [tooltipOpen, setTooltipOpen] = useState(false)
   const name = item.product?.display_name
     ?? item.product?.base_name
     ?? item.custom_name
@@ -421,11 +435,33 @@ function ListItemRow({
 
       {/* Name */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium truncate transition-colors ${
-          item.checked ? 'line-through text-stone-400' : 'text-stone-800 dark:text-stone-100'
-        }`}>
-          {name}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className={`text-sm font-medium truncate transition-colors ${
+            item.checked ? 'line-through text-stone-400' : 'text-stone-800 dark:text-stone-100'
+          }`}>
+            {name}
+          </p>
+          {warn && !item.checked && (
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                className="text-amber-400 hover:text-amber-500 transition-colors"
+                onClick={() => setTooltipOpen(v => !v)}
+                onMouseEnter={() => setTooltipOpen(true)}
+                onMouseLeave={() => setTooltipOpen(false)}
+                aria-label="Listed more than once with different units"
+              >
+                <TriangleAlert className="w-3.5 h-3.5" />
+              </button>
+              {tooltipOpen && (
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-52 bg-stone-800 dark:bg-stone-700 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-50 pointer-events-none text-center">
+                  This item appears more than once with different units — check both lines.
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-stone-800 dark:border-t-stone-700" />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         {!item.checked && item.source_meals && item.source_meals.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-0.5">
             {item.source_meals.map(meal => (
@@ -438,7 +474,7 @@ function ListItemRow({
             ))}
           </div>
         )}
-      </div>
+      </div>  {/* end name col */}
 
       {/* Qty stepper */}
       {!item.checked && (
@@ -505,6 +541,17 @@ function groupByCategory(items: ShoppingListItem[]) {
     const icon = cat?.icon ?? ''
     if (!groups[key]) groups[key] = { label, icon, items: [] }
     groups[key].items.push(item)
+  }
+
+  // Sort within each group: keep same-product items adjacent, preserve relative order otherwise
+  for (const group of Object.values(groups)) {
+    group.items.sort((a, b) => {
+      const aKey = a.product_id ?? a.custom_name ?? ''
+      const bKey = b.product_id ?? b.custom_name ?? ''
+      if (aKey < bKey) return -1
+      if (aKey > bKey) return 1
+      return 0
+    })
   }
 
   return Object.values(groups).sort((a, b) => a.label.localeCompare(b.label))
