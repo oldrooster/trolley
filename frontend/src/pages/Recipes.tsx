@@ -1048,7 +1048,6 @@ function RecipeForm({
             {ingShowSuggestions && ingSuggestions.length > 0 && (
               <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg z-30 max-h-52 overflow-y-auto">
                 {ingSuggestions.map(p => {
-                  const label = [p.base_name, p.variant_name].filter(Boolean).join(' · ')
                   return (
                     <button
                       key={p.id}
