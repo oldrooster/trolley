@@ -56,6 +56,7 @@ class RecipeCreate(BaseModel):
     difficulty: str | None = None    # everyone / kid_friendly / teen / adult
     nutrition: str | None = None     # very_healthy / healthy / moderate / indulgent
     is_quick: bool = False
+    meal_type: str | None = None     # breakfast / lunch / dinner / dessert
     ingredients: list[IngredientIn] = []
 
 
@@ -70,6 +71,7 @@ class RecipeUpdate(BaseModel):
     difficulty: str | None = None
     nutrition: str | None = None
     is_quick: bool | None = None
+    meal_type: str | None = None
     ingredients: list[IngredientIn] | None = None
 
 
@@ -86,6 +88,7 @@ class RecipeOut(BaseModel):
     difficulty: str | None = None
     nutrition: str | None = None
     is_quick: bool = False
+    meal_type: str | None = None
     created_at: datetime
     ingredients: list[IngredientOut]
 

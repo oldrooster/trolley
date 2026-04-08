@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from database import engine, SessionLocal
@@ -19,6 +20,7 @@ def _migrate(db):
         ("recipes",           "difficulty",           "TEXT"),
         ("recipes",           "nutrition",            "TEXT"),
         ("recipes",           "is_quick",             "INTEGER NOT NULL DEFAULT 0"),
+        ("recipes",           "meal_type",            "TEXT"),
         ("weekly_plan_meals", "assigned_member_ids",  "TEXT"),
         ("weekly_plan_meals", "cook_member_id",       "INTEGER"),
         ("family_members",    "photo_path",            "TEXT"),
@@ -79,4 +81,12 @@ app.include_router(family.router, prefix="/api")
 # Serve React frontend in production
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
+    # SPA fallback: any non-API path that doesn't match a static file serves index.html
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str):
+        file_path = os.path.join(static_dir, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(static_dir, "index.html"))
+
     app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")

@@ -4,7 +4,7 @@ import {
   Link, Sparkles, ChevronLeft, Upload, CheckCircle, Package
 } from 'lucide-react'
 import { api } from '../lib/api'
-import type { Recipe, Product, Category, RecipeDifficulty, RecipeNutrition } from '../lib/types'
+import type { Recipe, Product, Category, RecipeDifficulty, RecipeNutrition, RecipeMealType } from '../lib/types'
 
 // ── Difficulty + nutrition config ─────────────────────────────────────────────
 
@@ -37,6 +37,23 @@ export function NutritionBadge({ value }: { value: RecipeNutrition }) {
   if (!opt) return null
   return (
     <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${opt.color}`}>
+      {opt.emoji} {opt.label}
+    </span>
+  )
+}
+
+export const MEAL_TYPE_OPTIONS: { value: RecipeMealType; label: string; emoji: string }[] = [
+  { value: 'breakfast', label: 'Breakfast', emoji: '🍳' },
+  { value: 'lunch',     label: 'Lunch',     emoji: '🥪' },
+  { value: 'dinner',    label: 'Dinner',    emoji: '🍽️' },
+  { value: 'dessert',   label: 'Dessert',   emoji: '🍰' },
+]
+
+export function MealTypeBadge({ value }: { value: RecipeMealType }) {
+  const opt = MEAL_TYPE_OPTIONS.find(o => o.value === value)
+  if (!opt) return null
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full border bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-700">
       {opt.emoji} {opt.label}
     </span>
   )
@@ -98,7 +115,7 @@ export default function Recipes() {
   useEffect(() => {
     Promise.all([
       api.catalogue.categories().then(d => setCategories(d as Category[])),
-      api.catalogue.list().then(d => setProducts(d as Product[])),
+      api.catalogue.list().then(d => setProducts((d as { items: Product[] }).items)),
     ]).catch(console.error)
   }, [])
 
@@ -136,7 +153,7 @@ export default function Recipes() {
       success('Recipe added')
     }
     // Reload products so any newly created catalogue entries are available next edit
-    api.catalogue.list().then(d => setProducts(d as Product[])).catch(() => {})
+    api.catalogue.list().then(d => setProducts((d as { items: Product[] }).items)).catch(() => {})
   }
 
   async function handleDelete(recipe: Recipe) {
@@ -315,8 +332,9 @@ function RecipeCard({ recipe, onClick }: { recipe: Recipe; onClick: () => void }
             </span>
           )}
         </div>
-        {(recipe.difficulty || recipe.nutrition || recipe.is_quick) && (
+        {(recipe.difficulty || recipe.nutrition || recipe.is_quick || recipe.meal_type) && (
           <div className="flex flex-wrap gap-1 mt-2">
+            {recipe.meal_type && <MealTypeBadge value={recipe.meal_type} />}
             {recipe.is_quick && <QuickBadge />}
             {recipe.difficulty && <DifficultyBadge value={recipe.difficulty} />}
             {recipe.nutrition && <NutritionBadge value={recipe.nutrition} />}
@@ -418,8 +436,9 @@ function RecipeDetail({
         )}
       </div>
 
-      {(recipe.difficulty || recipe.nutrition || recipe.is_quick) && (
+      {(recipe.difficulty || recipe.nutrition || recipe.is_quick || recipe.meal_type) && (
         <div className="flex flex-wrap gap-2">
+          {recipe.meal_type && <MealTypeBadge value={recipe.meal_type} />}
           {recipe.is_quick && <QuickBadge />}
           {recipe.difficulty && <DifficultyBadge value={recipe.difficulty} />}
           {recipe.nutrition && <NutritionBadge value={recipe.nutrition} />}
@@ -512,6 +531,7 @@ interface RecipeFormData {
   difficulty?: RecipeDifficulty
   nutrition?: RecipeNutrition
   is_quick: boolean
+  meal_type?: RecipeMealType
   ingredients: RecipeIngredientDraft[]
 }
 
@@ -543,6 +563,7 @@ function RecipeForm({
     difficulty: initial?.difficulty ?? undefined,
     nutrition: initial?.nutrition ?? undefined,
     is_quick: initial?.is_quick ?? false,
+    meal_type: initial?.meal_type ?? undefined,
     ingredients: autoMatch(initial?.ingredients?.map(i => ({
       ingredient_name: i.ingredient_name,
       quantity: i.quantity ?? undefined,
@@ -718,6 +739,27 @@ function RecipeForm({
             {form.is_quick && <span className="text-white text-[10px]">✓</span>}
           </div>
         </button>
+
+        {/* Meal type */}
+        <div>
+          <label className="label block mb-1.5">Meal type</label>
+          <div className="flex flex-wrap gap-2">
+            {MEAL_TYPE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setField('meal_type', form.meal_type === opt.value ? undefined : opt.value)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                  form.meal_type === opt.value
+                    ? 'border-violet-400 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300'
+                    : 'border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:border-stone-300 dark:hover:border-stone-600'
+                }`}
+              >
+                {opt.emoji} {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Difficulty */}
         <div>

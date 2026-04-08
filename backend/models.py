@@ -86,6 +86,7 @@ class Recipe(Base):
     difficulty: Mapped[Optional[str]] = mapped_column(String, nullable=True)   # everyone / kid_friendly / teen / adult
     nutrition: Mapped[Optional[str]] = mapped_column(String, nullable=True)    # very_healthy / healthy / moderate / indulgent
     is_quick: Mapped[bool] = mapped_column(Boolean, default=False)
+    meal_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)    # breakfast / lunch / dinner / dessert
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     ingredients: Mapped[list["RecipeIngredient"]] = relationship(

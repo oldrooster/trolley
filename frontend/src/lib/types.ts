@@ -49,6 +49,7 @@ export interface RecipeIngredient {
 
 export type RecipeDifficulty = 'everyone' | 'kid_friendly' | 'teen' | 'adult'
 export type RecipeNutrition = 'very_healthy' | 'healthy' | 'moderate' | 'indulgent'
+export type RecipeMealType = 'breakfast' | 'lunch' | 'dinner' | 'dessert'
 
 export interface Recipe {
   id: number
@@ -63,6 +64,7 @@ export interface Recipe {
   difficulty?: RecipeDifficulty
   nutrition?: RecipeNutrition
   is_quick?: boolean
+  meal_type?: RecipeMealType
   created_at: string
   ingredients: RecipeIngredient[]
 }
