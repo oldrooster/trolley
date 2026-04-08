@@ -21,6 +21,8 @@ def _migrate(db):
         ("recipes",           "nutrition",            "TEXT"),
         ("recipes",           "is_quick",             "INTEGER NOT NULL DEFAULT 0"),
         ("recipes",           "meal_type",            "TEXT"),
+        ("shopping_list_items", "source_meals",        "TEXT"),
+        ("shopping_list_items", "source_meal_ids",    "TEXT"),
         ("weekly_plan_meals", "assigned_member_ids",  "TEXT"),
         ("weekly_plan_meals", "cook_member_id",       "INTEGER"),
         ("family_members",    "photo_path",            "TEXT"),

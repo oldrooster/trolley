@@ -66,6 +66,8 @@ class ShoppingListItem(Base):
     unit: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     checked: Mapped[bool] = mapped_column(Boolean, default=False)
     added_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    source_meals: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)     # recipe names that contributed this item (display)
+    source_meal_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)  # meal IDs that contributed (dedup guard)
 
     list: Mapped["ShoppingList"] = relationship("ShoppingList", back_populates="items")
     product: Mapped[Optional["Product"]] = relationship("Product", back_populates="shopping_list_items")

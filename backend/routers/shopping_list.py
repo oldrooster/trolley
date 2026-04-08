@@ -22,6 +22,7 @@ class ItemOut(BaseModel):
     unit: str | None = None
     checked: bool
     added_at: datetime
+    source_meals: list[str] | None = None
 
     model_config = {"from_attributes": True}
 
@@ -191,36 +192,103 @@ def list_history(db: Session = Depends(get_db)):
 
 @router.post("/add-from-meals", response_model=ListOut)
 def add_from_meals(body: AddFromMealsBody, db: Session = Depends(get_db)):
-    """Add all recipe ingredients from selected weekly plan meals to the active list."""
+    """Add all recipe ingredients from selected weekly plan meals to the active list.
+
+    Idempotent per meal ID — re-clicking with the same meals will not double quantities.
+    Quantities are summed when the same recipe appears multiple times in the selection.
+    """
     from models import WeeklyPlanMeal, RecipeIngredient
 
     active = get_or_create_active(db)
 
-    # Get existing product_ids already on the list (avoid exact duplicates)
-    existing_ids = {
-        item.product_id for item in active.items if item.product_id
-    }
+    # ── Accumulate ingredients, keyed per meal so we can do partial merges ─────
+    # acc[ingredient_key][meal_id] = (qty, unit, custom_name, recipe_name)
+    IngEntry = tuple  # (qty, unit, custom_name, recipe_name)
+    acc: dict[int | str, dict[int, IngEntry]] = {}
 
     for meal_id in body.meal_ids:
-        meal = db.get(WeeklyPlanMeal, meal_id)
+        meal = (
+            db.query(WeeklyPlanMeal)
+            .options(joinedload(WeeklyPlanMeal.recipe))
+            .filter(WeeklyPlanMeal.id == meal_id)
+            .first()
+        )
         if not meal or not meal.recipe_id:
             continue
+        recipe_name = meal.recipe.name if meal.recipe else "Unknown"
         ingredients = db.query(RecipeIngredient).filter(
             RecipeIngredient.recipe_id == meal.recipe_id
         ).all()
         for ing in ingredients:
-            if ing.product_id and ing.product_id in existing_ids:
-                continue  # already on list
-            item = ShoppingListItem(
+            key: int | str = ing.product_id if ing.product_id else ing.ingredient_name
+            qty = ing.quantity or 1.0
+            if key not in acc:
+                acc[key] = {}
+            if meal_id in acc[key]:
+                # Same meal_id contributing twice to the same key — sum qty
+                prev = acc[key][meal_id]
+                acc[key][meal_id] = (prev[0] + qty, prev[1], prev[2], prev[3])
+            else:
+                acc[key][meal_id] = (
+                    qty,
+                    ing.unit,
+                    None if ing.product_id else ing.ingredient_name,
+                    recipe_name,
+                )
+
+    # ── Merge into the active list ────────────────────────────────────────────
+    existing_by_product: dict[int, ShoppingListItem] = {
+        item.product_id: item
+        for item in active.items
+        if item.product_id
+    }
+
+    for key, per_meal in acc.items():
+        if isinstance(key, int):
+            if key in existing_by_product:
+                existing = existing_by_product[key]
+                existing_ids = set(existing.source_meal_ids or [])
+                # Only process meal IDs not yet applied to THIS item
+                new_meals = {mid: data for mid, data in per_meal.items() if mid not in existing_ids}
+                if not new_meals:
+                    continue
+                added_qty = sum(d[0] for d in new_meals.values())
+                existing.quantity += added_qty
+                existing_meals = list(existing.source_meals or [])
+                merged_ids = list(existing_ids)
+                for mid, (_, _, _, rname) in new_meals.items():
+                    if rname not in existing_meals:
+                        existing_meals.append(rname)
+                    merged_ids.append(mid)
+                existing.source_meals = sorted(existing_meals)
+                existing.source_meal_ids = sorted(merged_ids)
+            else:
+                total_qty = sum(d[0] for d in per_meal.values())
+                unit = next(iter(per_meal.values()))[1]
+                meal_names = sorted({d[3] for d in per_meal.values()})
+                meal_ids = sorted(per_meal.keys())
+                db.add(ShoppingListItem(
+                    list_id=active.id,
+                    product_id=key,
+                    quantity=total_qty,
+                    unit=unit,
+                    source_meals=meal_names,
+                    source_meal_ids=meal_ids,
+                ))
+        else:
+            total_qty = sum(d[0] for d in per_meal.values())
+            unit = next(iter(per_meal.values()))[1]
+            custom_name = next(iter(per_meal.values()))[2]
+            meal_names = sorted({d[3] for d in per_meal.values()})
+            meal_ids = sorted(per_meal.keys())
+            db.add(ShoppingListItem(
                 list_id=active.id,
-                product_id=ing.product_id,
-                custom_name=None if ing.product_id else ing.ingredient_name,
-                quantity=ing.quantity or 1.0,
-                unit=ing.unit,
-            )
-            db.add(item)
-            if ing.product_id:
-                existing_ids.add(ing.product_id)
+                custom_name=custom_name,
+                quantity=total_qty,
+                unit=unit,
+                source_meals=meal_names,
+                source_meal_ids=meal_ids,
+            ))
 
     db.commit()
     return load_list(db, active.id)

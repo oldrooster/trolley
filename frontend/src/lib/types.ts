@@ -27,6 +27,7 @@ export interface ShoppingListItem {
   unit?: string
   checked: boolean
   added_at: string
+  source_meals?: string[]
 }
 
 export interface ShoppingList {

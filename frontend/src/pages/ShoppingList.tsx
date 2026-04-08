@@ -426,10 +426,17 @@ function ListItemRow({
         }`}>
           {name}
         </p>
-        {item.product?.category && !item.checked && (
-          <p className="text-xs text-stone-400 truncate">
-            {item.product.category.icon} {item.product.category.name}
-          </p>
+        {!item.checked && item.source_meals && item.source_meals.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {item.source_meals.map(meal => (
+              <span
+                key={meal}
+                className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-300 border border-violet-200 dark:border-violet-700"
+              >
+                {meal}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
