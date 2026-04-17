@@ -42,6 +42,14 @@ class AIProvider(Protocol):
         """Generate a recipe from a natural language description."""
         ...
 
+    def suggest_unit_conversions(self, ingredients: list[dict]) -> list[dict]:
+        """Convert recipe ingredient quantities to each product's canonical unit.
+
+        Each input dict: {"ingredient_name": str, "quantity": float, "recipe_unit": str, "product_unit": str}
+        Each output dict: {"ingredient_name": str, "converted_quantity": float, "converted_unit": str, "note": str}
+        """
+        ...
+
     def generate_image(self, prompt: str) -> bytes:
         """Generate an image from a prompt, returns raw image bytes (PNG)."""
         ...

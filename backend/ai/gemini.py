@@ -80,6 +80,14 @@ class GeminiProvider:
         ])
         return _recipe_data_from_dict(data)
 
+    def suggest_unit_conversions(self, ingredients: list[dict]) -> list[dict]:
+        import json as _json
+        data = self._generate_json([
+            prompts.UNIT_CONVERSION,
+            _json.dumps(ingredients),
+        ])
+        return data if isinstance(data, list) else []
+
     def generate_image(self, prompt: str) -> bytes:
         # google-generativeai doesn't support Imagen; fall back to Vertex SDK
         raise NotImplementedError(

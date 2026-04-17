@@ -121,6 +121,14 @@ class VertexAIProvider:
         )
         return _recipe_data_from_dict(data)
 
+    def suggest_unit_conversions(self, ingredients: list[dict]) -> list[dict]:
+        import json as _json
+        data = self._generate_json(
+            prompt=_json.dumps(ingredients),
+            system=prompts.UNIT_CONVERSION,
+        )
+        return data if isinstance(data, list) else []
+
     def generate_image(self, prompt: str) -> bytes:
         response = self._client.models.generate_images(
             model="imagen-3.0-fast-generate-001",

@@ -15,6 +15,7 @@ interface ReceiptSummary {
   total_amount: number | null
   uploaded_at: string
   item_count: number
+  pending_review: boolean
 }
 
 interface ReceiptDetail {
@@ -88,6 +89,7 @@ export default function Receipts() {
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([])
   const [reviewMeta, setReviewMeta] = useState({ store_name: '', purchase_date: '', total_amount: '' })
   const [uploading, setUploading] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
@@ -112,9 +114,7 @@ export default function Receipts() {
     }
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  async function handleFile(file: File) {
     setUploading(true)
     setUploadError(null)
     setView('uploading')
@@ -135,6 +135,32 @@ export default function Receipts() {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) handleFile(file)
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!uploading) setIsDragOver(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    if (uploading) return
+    const file = e.dataTransfer.files[0]
+    if (file) handleFile(file)
   }
 
   function makeReviewItem(item: ExtractionItem): ReviewItem {
@@ -203,6 +229,28 @@ export default function Receipts() {
     }
   }
 
+  async function resumeReview(id: number) {
+    setUploading(true)
+    setUploadError(null)
+    setView('uploading')
+    try {
+      const result = await api.receipts.getReview(id) as ExtractionResult
+      setExtraction(result)
+      setReviewMeta({
+        store_name: result.store_name ?? '',
+        purchase_date: result.purchase_date ?? '',
+        total_amount: result.total_amount?.toString() ?? '',
+      })
+      setReviewItems(result.items.map(item => makeReviewItem(item)))
+      setView('review')
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Could not load review')
+      setView('list')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   function updateItem(idx: number, patch: Partial<ReviewItem>) {
     setReviewItems(prev => prev.map((item, i) => i === idx ? { ...item, ...patch } : item))
   }
@@ -221,14 +269,31 @@ export default function Receipts() {
       <div className="space-y-6">
         <h1 className="page-header">Receipts</h1>
 
-        <label className={`card border-2 border-dashed flex flex-col items-center justify-center py-12 gap-3 text-center cursor-pointer transition-colors ${
-          uploading ? 'border-brand-300 bg-brand-50' : 'border-stone-200 dark:border-stone-700 hover:border-brand-300 hover:bg-stone-50 dark:hover:bg-stone-800'
-        }`}>
+        <label
+          className={`card border-2 border-dashed flex flex-col items-center justify-center py-12 gap-3 text-center cursor-pointer transition-colors ${
+            uploading
+              ? 'border-brand-300 bg-brand-50 dark:bg-brand-900/20'
+              : isDragOver
+              ? 'border-brand-400 bg-brand-50 dark:bg-brand-900/20 scale-[1.01]'
+              : 'border-stone-200 dark:border-stone-700 hover:border-brand-300 hover:bg-stone-50 dark:hover:bg-stone-800'
+          }`}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           {uploading ? (
             <>
               <Loader className="w-8 h-8 text-brand-400 animate-spin" />
               <p className="text-sm font-medium text-brand-600">Extracting receipt with AI…</p>
               <p className="text-xs text-stone-400">This takes a few seconds</p>
+            </>
+          ) : isDragOver ? (
+            <>
+              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/40 rounded-xl flex items-center justify-center">
+                <Upload className="w-5 h-5 text-brand-500" />
+              </div>
+              <p className="text-sm font-medium text-brand-600 dark:text-brand-400">Drop to upload</p>
             </>
           ) : (
             <>
@@ -237,7 +302,7 @@ export default function Receipts() {
               </div>
               <div>
                 <p className="text-sm font-medium text-stone-600 dark:text-stone-400">Upload a receipt</p>
-                <p className="text-xs text-stone-400 mt-0.5">Woolworths, New World, Pak'n'Save — JPEG, PNG or PDF</p>
+                <p className="text-xs text-stone-400 mt-0.5">Drag & drop or choose — JPEG, PNG or PDF</p>
               </div>
               <span className="btn-primary text-sm">Choose file</span>
             </>
@@ -267,7 +332,8 @@ export default function Receipts() {
                 <ReceiptRow
                   key={r.id}
                   receipt={r}
-                  onView={() => openDetail(r.id)}
+                  onView={() => r.pending_review ? resumeReview(r.id) : openDetail(r.id)}
+                  onResume={r.pending_review ? () => resumeReview(r.id) : undefined}
                   onDelete={() => handleDelete(r.id)}
                 />
               ))}
@@ -492,10 +558,12 @@ export default function Receipts() {
 function ReceiptRow({
   receipt,
   onView,
+  onResume,
   onDelete,
 }: {
   receipt: ReceiptSummary
   onView: () => void
+  onResume?: () => void
   onDelete: () => void
 }) {
   const [confirmDel, setConfirmDel] = useState(false)
@@ -507,30 +575,52 @@ function ReceiptRow({
     <div className="flex items-center gap-3 px-4 py-3 group">
       <button
         onClick={onView}
-        className="w-9 h-9 rounded-lg bg-stone-100 dark:bg-stone-700 flex items-center justify-center shrink-0 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors"
-        title="View receipt"
+        className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+          receipt.pending_review
+            ? 'bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50'
+            : 'bg-stone-100 dark:bg-stone-700 hover:bg-brand-50 dark:hover:bg-brand-900/20'
+        }`}
+        title={receipt.pending_review ? 'Continue review' : 'View receipt'}
       >
-        <ReceiptIcon className="w-4 h-4 text-stone-500" />
+        <ReceiptIcon className={`w-4 h-4 ${receipt.pending_review ? 'text-amber-600 dark:text-amber-400' : 'text-stone-500'}`} />
       </button>
       <button onClick={onView} className="flex-1 min-w-0 text-left">
-        <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">
-          {receipt.store_name ?? 'Unknown store'}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-stone-800 dark:text-stone-100 truncate">
+            {receipt.store_name ?? 'Unknown store'}
+          </p>
+          {receipt.pending_review && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 shrink-0">
+              Pending review
+            </span>
+          )}
+        </div>
         <p className="text-xs text-stone-400">
-          {date} · {receipt.item_count} item{receipt.item_count !== 1 ? 's' : ''}
+          {date}{!receipt.pending_review && ` · ${receipt.item_count} item${receipt.item_count !== 1 ? 's' : ''}`}
         </p>
       </button>
       <div className="flex items-center gap-2 shrink-0">
-        {receipt.total_amount && (
-          <span className="text-sm font-medium text-stone-700 dark:text-stone-300">${receipt.total_amount.toFixed(2)}</span>
+        {receipt.pending_review && onResume ? (
+          <button
+            onClick={onResume}
+            className="text-xs text-amber-600 dark:text-amber-400 font-medium px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+          >
+            Continue
+          </button>
+        ) : (
+          <>
+            {receipt.total_amount && (
+              <span className="text-sm font-medium text-stone-700 dark:text-stone-300">${receipt.total_amount.toFixed(2)}</span>
+            )}
+            <button
+              onClick={onView}
+              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-stone-100 dark:hover:bg-stone-700 transition-all"
+              title="View"
+            >
+              <Eye className="w-3.5 h-3.5 text-stone-400" />
+            </button>
+          </>
         )}
-        <button
-          onClick={onView}
-          className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-stone-100 dark:hover:bg-stone-700 transition-all"
-          title="View"
-        >
-          <Eye className="w-3.5 h-3.5 text-stone-400" />
-        </button>
         {confirmDel ? (
           <div className="flex items-center gap-1">
             <button onClick={onDelete} className="text-xs text-red-500 font-medium px-2 py-1 rounded hover:bg-red-50">Delete</button>

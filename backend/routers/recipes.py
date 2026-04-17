@@ -116,6 +116,24 @@ class GenerateBody(BaseModel):
     description: str
 
 
+class ConversionIngredient(BaseModel):
+    ingredient_name: str
+    quantity: float
+    recipe_unit: str
+    product_unit: str
+
+
+class SuggestConversionsBody(BaseModel):
+    ingredients: list[ConversionIngredient]
+
+
+class ConversionResult(BaseModel):
+    ingredient_name: str
+    converted_quantity: float
+    converted_unit: str
+    note: str
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def load_recipe(db: Session, recipe_id: int) -> Recipe:
@@ -237,6 +255,36 @@ def get_image(filename: str):
     if not os.path.exists(path):
         raise HTTPException(404, "Image not found")
     return FileResponse(path)
+
+
+@router.post("/suggest-conversions", response_model=list[ConversionResult])
+def suggest_conversions(body: SuggestConversionsBody, db: Session = Depends(get_db)):
+    """Ask AI to convert recipe ingredient units to each product's canonical unit."""
+    if not body.ingredients:
+        return []
+    from ai.factory import get_ai_provider
+    try:
+        provider = get_ai_provider(db)
+        results = provider.suggest_unit_conversions([
+            {
+                "ingredient_name": i.ingredient_name,
+                "quantity": i.quantity,
+                "recipe_unit": i.recipe_unit,
+                "product_unit": i.product_unit,
+            }
+            for i in body.ingredients
+        ])
+        return [
+            ConversionResult(
+                ingredient_name=r.get("ingredient_name", ""),
+                converted_quantity=float(r.get("converted_quantity", 0)),
+                converted_unit=str(r.get("converted_unit", "")),
+                note=str(r.get("note", "")),
+            )
+            for r in results
+        ]
+    except Exception as e:
+        raise HTTPException(502, f"AI conversion failed: {e}")
 
 
 @router.post("/parse-url", response_model=RecipeOut)

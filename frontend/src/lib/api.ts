@@ -61,6 +61,7 @@ export const api = {
     parseUrl: (url: string) => request('/recipes/parse-url', { method: 'POST', body: JSON.stringify({ url }) }),
     generate: (description: string) => request('/recipes/generate', { method: 'POST', body: JSON.stringify({ description }) }),
     generateImage: (recipeId: number) => request(`/recipes/${recipeId}/generate-image`, { method: 'POST' }),
+    suggestConversions: (ingredients: unknown[]) => request('/recipes/suggest-conversions', { method: 'POST', body: JSON.stringify({ ingredients }) }),
     uploadImage: (recipeId: number, file: File) => {
       const form = new FormData()
       form.append('file', file)
@@ -78,6 +79,7 @@ export const api = {
     confirm: (id: number, data: unknown) => request(`/receipts/${id}/confirm`, { method: 'POST', body: JSON.stringify(data) }),
     list: () => request('/receipts'),
     get: (id: number) => request(`/receipts/${id}`),
+    getReview: (id: number) => request(`/receipts/${id}/review`),
     delete: (id: number) => request(`/receipts/${id}`, { method: 'DELETE' }),
   },
 

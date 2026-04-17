@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   BookOpen, Search, X, Clock, Users, Pencil, Trash2,
-  Link, Sparkles, ChevronLeft, Upload, CheckCircle, Package
+  Link, Sparkles, ChevronLeft, Upload, CheckCircle, Package, Loader
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { Recipe, Product, Category, RecipeDifficulty, RecipeNutrition, RecipeMealType } from '../lib/types'
@@ -509,6 +509,20 @@ function RecipeDetail({
 
 // ── Recipe form ───────────────────────────────────────────────────────────────
 
+interface ConversionItem {
+  idx: number
+  ingredient_name: string
+  original_quantity: number
+  original_unit: string
+  product_unit: string
+  converted_quantity: number
+  converted_unit: string
+  note: string
+  apply: boolean
+  edit_quantity: string
+  edit_unit: string
+}
+
 interface RecipeIngredientDraft {
   ingredient_name: string
   quantity?: number
@@ -587,6 +601,10 @@ function RecipeForm({
   const [overrideResults, setOverrideResults] = useState<Product[]>([])
   // Products found via search that may not be in the base (limited) products list
   const [extraProducts, setExtraProducts] = useState<Map<number, Product>>(new Map())
+  // Unit conversion dialog state
+  const [showConversions, setShowConversions] = useState(false)
+  const [loadingConversions, setLoadingConversions] = useState(false)
+  const [conversions, setConversions] = useState<ConversionItem[]>([])
 
   // On mount, fetch any ingredient products that aren't in the base list
   useEffect(() => {
@@ -693,8 +711,103 @@ function RecipeForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name.trim()) return
+
+    // Check for ingredients whose recipe unit differs from the product's canonical unit
+    const mismatches = form.ingredients
+      .map((ing, idx) => {
+        if (!ing.product_id || !ing.unit || !ing.quantity) return null
+        const product = findProduct(ing.product_id)
+        if (!product) return null
+        if (ing.unit.toLowerCase().trim() === product.unit.toLowerCase().trim()) return null
+        return { idx, ing, product }
+      })
+      .filter(Boolean) as { idx: number; ing: RecipeIngredientDraft; product: Product }[]
+
+    if (mismatches.length > 0) {
+      setLoadingConversions(true)
+      setShowConversions(true)
+      setConversions(mismatches.map(({ idx, ing, product }) => ({
+        idx,
+        ingredient_name: ing.ingredient_name,
+        original_quantity: ing.quantity!,
+        original_unit: ing.unit!,
+        product_unit: product.unit,
+        converted_quantity: ing.quantity!,
+        converted_unit: product.unit,
+        note: 'Loading…',
+        apply: true,
+        edit_quantity: String(ing.quantity!),
+        edit_unit: product.unit,
+      })))
+      try {
+        const results = await api.recipes.suggestConversions(
+          mismatches.map(({ ing, product }) => ({
+            ingredient_name: ing.ingredient_name,
+            quantity: ing.quantity!,
+            recipe_unit: ing.unit!,
+            product_unit: product.unit,
+          }))
+        ) as { ingredient_name: string; converted_quantity: number; converted_unit: string; note: string }[]
+        setConversions(mismatches.map(({ idx, ing, product }, i) => {
+          const r = results[i]
+          const qty = r?.converted_quantity ?? ing.quantity!
+          const unit = r?.converted_unit ?? product.unit
+          return {
+            idx,
+            ingredient_name: ing.ingredient_name,
+            original_quantity: ing.quantity!,
+            original_unit: ing.unit!,
+            product_unit: product.unit,
+            converted_quantity: qty,
+            converted_unit: unit,
+            note: r?.note ?? '',
+            apply: true,
+            edit_quantity: String(qty),
+            edit_unit: unit,
+          }
+        }))
+      } catch {
+        // If AI fails, populate with product units (no quantity conversion)
+        setConversions(mismatches.map(({ idx, ing, product }) => ({
+          idx,
+          ingredient_name: ing.ingredient_name,
+          original_quantity: ing.quantity!,
+          original_unit: ing.unit!,
+          product_unit: product.unit,
+          converted_quantity: ing.quantity!,
+          converted_unit: product.unit,
+          note: 'AI unavailable — adjust quantity manually',
+          apply: true,
+          edit_quantity: String(ing.quantity!),
+          edit_unit: product.unit,
+        })))
+      } finally {
+        setLoadingConversions(false)
+      }
+      return
+    }
+
     setSaving(true)
     try { await onSave(form) } finally { setSaving(false) }
+  }
+
+  async function confirmConversions(applyList: ConversionItem[]) {
+    setShowConversions(false)
+    const updatedIngredients = form.ingredients.map((ing, i) => {
+      const conv = applyList.find(c => c.idx === i && c.apply)
+      if (!conv) return ing
+      return {
+        ...ing,
+        quantity: parseFloat(conv.edit_quantity) || conv.converted_quantity,
+        unit: conv.edit_unit || conv.converted_unit,
+      }
+    })
+    setSaving(true)
+    try {
+      await onSave({ ...form, ingredients: updatedIngredients })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -1107,7 +1220,128 @@ function RecipeForm({
           placeholder="Step 1: …&#10;Step 2: …"
         />
       </div>
+
+      {/* Unit conversion dialog */}
+      {showConversions && (
+        <UnitConversionDialog
+          conversions={conversions}
+          loading={loadingConversions}
+          onChange={setConversions}
+          onConfirm={() => confirmConversions(conversions)}
+          onSkip={async () => {
+            setShowConversions(false)
+            setSaving(true)
+            try { await onSave(form) } finally { setSaving(false) }
+          }}
+          onCancel={() => setShowConversions(false)}
+        />
+      )}
     </form>
+  )
+}
+
+// ── Unit conversion dialog ────────────────────────────────────────────────────
+
+function UnitConversionDialog({
+  conversions,
+  loading,
+  onChange,
+  onConfirm,
+  onSkip,
+  onCancel,
+}: {
+  conversions: ConversionItem[]
+  loading: boolean
+  onChange: (items: ConversionItem[]) => void
+  onConfirm: () => void
+  onSkip: () => void
+  onCancel: () => void
+}) {
+  function update(idx: number, patch: Partial<ConversionItem>) {
+    onChange(conversions.map((c, i) => i === idx ? { ...c, ...patch } : c))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white dark:bg-stone-900 rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col">
+        <div className="p-5 border-b border-stone-100 dark:border-stone-800">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">Unit conversions</h2>
+          <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
+            Some ingredient units differ from their catalogue units. Review the conversions below.
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-3">
+              <Loader className="w-6 h-6 text-brand-400 animate-spin" />
+              <p className="text-sm text-stone-400">Calculating conversions…</p>
+            </div>
+          ) : (
+            conversions.map((conv, i) => (
+              <div key={i} className={`rounded-xl border p-3 space-y-2 transition-opacity ${conv.apply ? '' : 'opacity-50'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-stone-800 dark:text-stone-100">{conv.ingredient_name}</p>
+                    <p className="text-xs text-stone-400 mt-0.5">
+                      Recipe: {conv.original_quantity} {conv.original_unit} → Catalogue unit: {conv.product_unit}
+                    </p>
+                    {conv.note && conv.note !== 'Loading…' && (
+                      <p className="text-xs text-brand-600 dark:text-brand-400 mt-0.5">{conv.note}</p>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-1.5 text-xs text-stone-500 cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={conv.apply}
+                      onChange={e => update(i, { apply: e.target.checked })}
+                      className="rounded text-brand-500"
+                    />
+                    Apply
+                  </label>
+                </div>
+                {conv.apply && (
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-xs text-stone-400 block mb-0.5">Quantity</label>
+                      <input
+                        className="input text-sm py-1"
+                        type="number"
+                        step="any"
+                        min={0}
+                        value={conv.edit_quantity}
+                        onChange={e => update(i, { edit_quantity: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-stone-400 block mb-0.5">Unit</label>
+                      <input
+                        className="input text-sm py-1"
+                        value={conv.edit_unit}
+                        onChange={e => update(i, { edit_unit: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="p-5 border-t border-stone-100 dark:border-stone-800 flex gap-3">
+          <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
+          <button type="button" onClick={onSkip} className="btn-secondary flex-1">Save as-is</button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="btn-primary flex-1"
+          >
+            Save with conversions
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

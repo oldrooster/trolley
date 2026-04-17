@@ -91,6 +91,29 @@ Rules:
 - Return ONLY valid JSON with no markdown fences"""
 
 
+UNIT_CONVERSION = """You are a cooking measurement conversion assistant.
+
+I have recipe ingredients whose units don't match the product's canonical storage unit.
+Convert each ingredient's quantity to the product's canonical unit.
+
+Input JSON array:
+[{"ingredient_name": "...", "quantity": 2.0, "recipe_unit": "cups", "product_unit": "mL"}]
+
+Return a JSON array with one object per input ingredient:
+[{
+  "ingredient_name": "...",
+  "converted_quantity": 480.0,
+  "converted_unit": "mL",
+  "note": "2 cups ≈ 480 mL"
+}]
+
+Rules:
+- Use well-known culinary conversions (1 cup = 240 mL, 1 tbsp = 15 mL, 1 tsp = 5 mL, 1 oz ≈ 28 g, 1 lb ≈ 450 g, etc.)
+- Round to sensible precision (e.g. 480 not 480.00001)
+- If the units are incompatible or the conversion is unclear, return the original quantity and unit unchanged and set note to "Cannot convert"
+- Return ONLY valid JSON, no markdown fences"""
+
+
 RECIPE_IMAGE = """A beautiful professional food photography shot of {recipe_name}.
 Served on a clean plate or in a bowl, natural soft lighting from the side,
 shallow depth of field, restaurant-quality presentation, appetising colours.

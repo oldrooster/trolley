@@ -90,6 +90,7 @@ class ReceiptOut(BaseModel):
     total_amount: float | None = None
     uploaded_at: datetime
     item_count: int
+    pending_review: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -325,6 +326,11 @@ def list_receipts(db: Session = Depends(get_db)):
     result = []
     for r in receipts:
         count = db.query(ReceiptItem).filter(ReceiptItem.receipt_id == r.id).count()
+        has_raw_items = bool(
+            r.raw_extraction
+            and isinstance(r.raw_extraction, dict)
+            and r.raw_extraction.get("items")
+        )
         result.append(ReceiptOut(
             id=r.id,
             store_name=r.store_name,
@@ -332,8 +338,55 @@ def list_receipts(db: Session = Depends(get_db)):
             total_amount=r.total_amount,
             uploaded_at=r.uploaded_at,
             item_count=count,
+            pending_review=count == 0 and has_raw_items,
         ))
     return result
+
+
+@router.get("/{receipt_id}/review", response_model=ExtractionResult)
+def get_receipt_review(receipt_id: int, db: Session = Depends(get_db)):
+    """Re-hydrate the review state for a pending (unconfirmed) receipt."""
+    receipt = db.get(Receipt, receipt_id)
+    if not receipt:
+        raise HTTPException(404, "Receipt not found")
+    if not receipt.raw_extraction or not receipt.raw_extraction.get("items"):
+        raise HTTPException(400, "No pending review for this receipt")
+
+    extraction_items: list[ReceiptItemDraft] = []
+    for item in receipt.raw_extraction.get("items", []):
+        raw_name = item.get("raw_name", "")
+        matched = _fuzzy_match_product(db, raw_name)
+
+        matched_category_name = None
+        matched_category_icon = None
+        if matched and matched.category:
+            matched_category_name = matched.category.name
+            matched_category_icon = matched.category.icon
+
+        extraction_items.append(ReceiptItemDraft(
+            raw_name=raw_name,
+            quantity=item.get("quantity"),
+            unit_price=item.get("unit_price"),
+            total_price=item.get("total_price"),
+            matched_product_id=matched.id if matched else None,
+            matched_product_name=(matched.display_name if hasattr(matched, "display_name") else matched.base_name) if matched else None,
+            matched_product_unit=matched.unit if matched else None,
+            matched_category_name=matched_category_name,
+            matched_category_icon=matched_category_icon,
+            suggested_base_name=item.get("suggested_base_name"),
+            suggested_variant_name=item.get("suggested_variant_name"),
+            suggested_full_name=item.get("suggested_full_name"),
+            suggested_category=item.get("suggested_category"),
+            suggested_unit=item.get("suggested_unit"),
+        ))
+
+    return ExtractionResult(
+        receipt_id=receipt.id,
+        store_name=receipt.store_name,
+        purchase_date=receipt.purchase_date.isoformat() if receipt.purchase_date else None,
+        total_amount=receipt.total_amount,
+        items=extraction_items,
+    )
 
 
 @router.get("/{receipt_id}", response_model=ReceiptDetailOut)

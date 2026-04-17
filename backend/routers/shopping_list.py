@@ -223,12 +223,20 @@ def add_from_meals(body: AddFromMealsBody, db: Session = Depends(get_db)):
         if not meal or not meal.recipe_id:
             continue
         recipe_name = meal.recipe.name if meal.recipe else "Unknown"
-        ingredients = db.query(RecipeIngredient).filter(
-            RecipeIngredient.recipe_id == meal.recipe_id
-        ).all()
+        ingredients = (
+            db.query(RecipeIngredient)
+            .options(joinedload(RecipeIngredient.product))
+            .filter(RecipeIngredient.recipe_id == meal.recipe_id)
+            .all()
+        )
         for ing in ingredients:
+            # Use the product's canonical unit when the ingredient has no unit set
+            effective_unit = ing.unit
+            if not effective_unit and ing.product_id and ing.product:
+                effective_unit = ing.product.unit
+
             ing_id: int | str = ing.product_id if ing.product_id else ing.ingredient_name
-            key = (ing_id, _unit_key(ing.unit))
+            key = (ing_id, _unit_key(effective_unit))
             qty = ing.quantity or 1.0
             if key not in acc:
                 acc[key] = {}
@@ -238,7 +246,7 @@ def add_from_meals(body: AddFromMealsBody, db: Session = Depends(get_db)):
             else:
                 acc[key][meal_id] = (
                     qty,
-                    ing.unit,
+                    effective_unit,
                     None if ing.product_id else ing.ingredient_name,
                     recipe_name,
                 )
