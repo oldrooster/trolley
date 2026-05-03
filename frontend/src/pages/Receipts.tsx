@@ -698,7 +698,12 @@ function ReviewItemRow({
                     {item.matched_product_unit && <span className="text-brand-400">· {item.matched_product_unit}</span>}
                   </div>
                   <button
-                    onClick={() => { onChange({ overriding_match: true, create_product: true }); setExpanded(true) }}
+                    onClick={() => {
+                      const categoryId = item.new_category_id ??
+                        categories.find(c => c.name.toLowerCase() === (item.matched_category_name ?? '').toLowerCase())?.id ?? null
+                      onChange({ overriding_match: true, create_product: true, new_category_id: categoryId })
+                      setExpanded(true)
+                    }}
                     className="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 underline"
                   >
                     Override
