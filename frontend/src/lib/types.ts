@@ -46,6 +46,8 @@ export interface RecipeIngredient {
   quantity?: number
   unit?: string
   notes?: string
+  shopping_quantity?: number
+  shopping_unit?: string
 }
 
 export type RecipeDifficulty = 'everyone' | 'kid_friendly' | 'teen' | 'adult'

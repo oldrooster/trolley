@@ -26,6 +26,8 @@ def _migrate(db):
         ("weekly_plan_meals", "assigned_member_ids",  "TEXT"),
         ("weekly_plan_meals", "cook_member_id",       "INTEGER"),
         ("family_members",    "photo_path",            "TEXT"),
+        ("recipe_ingredients", "shopping_quantity",    "REAL"),
+        ("recipe_ingredients", "shopping_unit",        "TEXT"),
     ]
     for table, col, col_def in migrations:
         try:

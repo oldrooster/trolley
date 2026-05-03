@@ -31,6 +31,8 @@ class IngredientIn(BaseModel):
     category_id: int | None = None  # suggested category for new product
     new_base_name: str | None = None    # user-supplied base name for new product
     new_variant_name: str | None = None  # user-supplied variant name for new product
+    shopping_quantity: float | None = None  # canonical unit quantity for shopping list
+    shopping_unit: str | None = None        # canonical unit for shopping list
 
 
 class IngredientOut(BaseModel):
@@ -41,6 +43,8 @@ class IngredientOut(BaseModel):
     quantity: float | None = None
     unit: str | None = None
     notes: str | None = None
+    shopping_quantity: float | None = None
+    shopping_unit: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -175,6 +179,8 @@ def save_ingredients(db: Session, recipe_id: int, ingredients: list[IngredientIn
             quantity=ing.quantity,
             unit=ing.unit,
             notes=ing.notes,
+            shopping_quantity=ing.shopping_quantity,
+            shopping_unit=ing.shopping_unit,
         ))
 
 

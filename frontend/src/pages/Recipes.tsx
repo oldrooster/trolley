@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   BookOpen, Search, X, Clock, Users, Pencil, Trash2,
-  Link, Sparkles, ChevronLeft, Upload, CheckCircle, Package, Loader
+  Link, Sparkles, ChevronLeft, Upload, CheckCircle, Package, Loader, ShoppingCart
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { Recipe, Product, Category, RecipeDifficulty, RecipeNutrition, RecipeMealType } from '../lib/types'
@@ -533,6 +533,8 @@ interface RecipeIngredientDraft {
   guessed_category_id?: number  // category from auto-match, preserved for new-product creation
   new_base_name?: string       // user-declared base name for new catalogue product
   new_variant_name?: string    // user-declared variant name for new catalogue product
+  shopping_quantity?: number   // canonical unit quantity used for shopping list
+  shopping_unit?: string       // canonical unit used for shopping list (may differ from recipe display unit)
 }
 
 interface RecipeFormData {
@@ -585,6 +587,8 @@ function RecipeForm({
       unit: i.unit ?? undefined,
       notes: i.notes ?? undefined,
       product_id: i.product_id ?? undefined,
+      shopping_quantity: i.shopping_quantity ?? undefined,
+      shopping_unit: i.shopping_unit ?? undefined,
     })) ?? []),
   }))
   const [saving, setSaving] = useState(false)
@@ -641,6 +645,8 @@ function RecipeForm({
   const [editIngName, setEditIngName] = useState('')
   const [editIngQty, setEditIngQty] = useState('')
   const [editIngUnit, setEditIngUnit] = useState('')
+  const [editIngShoppingQty, setEditIngShoppingQty] = useState('')
+  const [editIngShoppingUnit, setEditIngShoppingUnit] = useState('')
 
   function findProduct(id: number): Product | undefined {
     return products.find(p => p.id === id) ?? extraProducts.get(id)
@@ -688,6 +694,8 @@ function RecipeForm({
     setEditIngName(ing.ingredient_name)
     setEditIngQty(ing.quantity != null ? String(ing.quantity) : '')
     setEditIngUnit(ing.unit ?? '')
+    setEditIngShoppingQty(ing.shopping_quantity != null ? String(ing.shopping_quantity) : '')
+    setEditIngShoppingUnit(ing.shopping_unit ?? '')
   }
 
   function commitEditIng(idx: number) {
@@ -695,6 +703,8 @@ function RecipeForm({
     const newName = editIngName.trim()
     const newQty = editIngQty ? parseFloat(editIngQty) : undefined
     const newUnit = editIngUnit.trim() || undefined
+    const newShoppingQty = editIngShoppingQty ? parseFloat(editIngShoppingQty) : undefined
+    const newShoppingUnit = editIngShoppingUnit.trim() || undefined
     // Re-match only if name changed
     const ing = form.ingredients[idx]
     const nameChanged = newName !== ing.ingredient_name
@@ -703,6 +713,8 @@ function RecipeForm({
       ingredient_name: newName,
       quantity: newQty,
       unit: newUnit,
+      shopping_quantity: newShoppingQty,
+      shopping_unit: newShoppingUnit,
       ...(nameChanged && { product_id: newMatch?.id, guessed_category_id: newMatch?.category_id ?? undefined }),
     })
     setEditIngIdx(null)
@@ -713,9 +725,11 @@ function RecipeForm({
     if (!form.name.trim()) return
 
     // Check for ingredients whose recipe unit differs from the product's canonical unit
+    // Skip if a shopping unit is already explicitly set
     const mismatches = form.ingredients
       .map((ing, idx) => {
         if (!ing.product_id || !ing.unit || !ing.quantity) return null
+        if (ing.shopping_unit) return null  // already resolved
         const product = findProduct(ing.product_id)
         if (!product) return null
         if (ing.unit.toLowerCase().trim() === product.unit.toLowerCase().trim()) return null
@@ -796,10 +810,11 @@ function RecipeForm({
     const updatedIngredients = form.ingredients.map((ing, i) => {
       const conv = applyList.find(c => c.idx === i && c.apply)
       if (!conv) return ing
+      // Store the converted value as the shopping unit — leave recipe display unchanged
       return {
         ...ing,
-        quantity: parseFloat(conv.edit_quantity) || conv.converted_quantity,
-        unit: conv.edit_unit || conv.converted_unit,
+        shopping_quantity: parseFloat(conv.edit_quantity) || conv.converted_quantity,
+        shopping_unit: conv.edit_unit || conv.converted_unit,
       }
     })
     setSaving(true)
@@ -950,47 +965,78 @@ function RecipeForm({
               <div key={i} className="px-5 py-2.5 space-y-1.5">
                 {editIngIdx === i ? (
                   /* ── Inline edit mode ── */
-                  <div className="flex items-center gap-2">
-                    <input
-                      autoFocus
-                      className="input flex-1 text-sm py-1"
-                      value={editIngName}
-                      onChange={e => setEditIngName(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') { e.preventDefault(); commitEditIng(i) }
-                        if (e.key === 'Escape') setEditIngIdx(null)
-                      }}
-                      placeholder="Ingredient name"
-                    />
-                    <input
-                      className="input w-16 text-center text-sm py-1"
-                      value={editIngQty}
-                      onChange={e => setEditIngQty(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') { e.preventDefault(); commitEditIng(i) }
-                        if (e.key === 'Escape') setEditIngIdx(null)
-                      }}
-                      placeholder="Qty"
-                      type="number"
-                      min={0}
-                      step="any"
-                    />
-                    <input
-                      className="input w-16 text-sm py-1"
-                      value={editIngUnit}
-                      onChange={e => setEditIngUnit(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') { e.preventDefault(); commitEditIng(i) }
-                        if (e.key === 'Escape') setEditIngIdx(null)
-                      }}
-                      placeholder="Unit"
-                    />
-                    <button type="button" onClick={() => commitEditIng(i)} className="p-1.5 rounded-lg bg-brand-50 dark:bg-brand-900/30 hover:bg-brand-100 shrink-0">
-                      <CheckCircle className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
-                    </button>
-                    <button type="button" onClick={() => setEditIngIdx(null)} className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 shrink-0">
-                      <X className="w-3.5 h-3.5 text-stone-400" />
-                    </button>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        className="input flex-1 text-sm py-1"
+                        value={editIngName}
+                        onChange={e => setEditIngName(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); commitEditIng(i) }
+                          if (e.key === 'Escape') setEditIngIdx(null)
+                        }}
+                        placeholder="Ingredient name"
+                      />
+                      <input
+                        className="input w-16 text-center text-sm py-1"
+                        value={editIngQty}
+                        onChange={e => setEditIngQty(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); commitEditIng(i) }
+                          if (e.key === 'Escape') setEditIngIdx(null)
+                        }}
+                        placeholder="Qty"
+                        type="number"
+                        min={0}
+                        step="any"
+                      />
+                      <input
+                        className="input w-16 text-sm py-1"
+                        value={editIngUnit}
+                        onChange={e => setEditIngUnit(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); commitEditIng(i) }
+                          if (e.key === 'Escape') setEditIngIdx(null)
+                        }}
+                        placeholder="Unit"
+                      />
+                      <button type="button" onClick={() => commitEditIng(i)} className="p-1.5 rounded-lg bg-brand-50 dark:bg-brand-900/30 hover:bg-brand-100 shrink-0">
+                        <CheckCircle className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                      </button>
+                      <button type="button" onClick={() => setEditIngIdx(null)} className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 shrink-0">
+                        <X className="w-3.5 h-3.5 text-stone-400" />
+                      </button>
+                    </div>
+                    {/* Shopping unit row */}
+                    <div className="flex items-center gap-2 pl-1">
+                      <ShoppingCart className="w-3 h-3 text-stone-300 dark:text-stone-600 shrink-0" />
+                      <span className="text-xs text-stone-400 shrink-0">Shopping:</span>
+                      <input
+                        className="input w-20 text-center text-xs py-0.5"
+                        value={editIngShoppingQty}
+                        onChange={e => setEditIngShoppingQty(e.target.value)}
+                        placeholder="Qty"
+                        type="number"
+                        min={0}
+                        step="any"
+                      />
+                      <input
+                        className="input w-20 text-xs py-0.5"
+                        value={editIngShoppingUnit}
+                        onChange={e => setEditIngShoppingUnit(e.target.value)}
+                        placeholder="Unit (e.g. L)"
+                      />
+                      {(editIngShoppingQty || editIngShoppingUnit) && (
+                        <button
+                          type="button"
+                          onClick={() => { setEditIngShoppingQty(''); setEditIngShoppingUnit('') }}
+                          className="text-xs text-stone-400 hover:text-red-400 transition-colors"
+                        >
+                          clear
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 group">
@@ -1001,6 +1047,13 @@ function RecipeForm({
                       {ing.quantity != null ? ing.quantity : ''}
                       {ing.unit ? ` ${ing.unit}` : ''}
                     </span>
+                    {/* Shopping unit badge — shown when conversion differs from display */}
+                    {ing.shopping_unit && (ing.shopping_unit !== ing.unit || ing.shopping_quantity !== ing.quantity) && (
+                      <span className="flex items-center gap-1 text-xs text-stone-400 dark:text-stone-500 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded shrink-0" title="Shopping list quantity">
+                        <ShoppingCart className="w-2.5 h-2.5" />
+                        {ing.shopping_quantity != null ? ing.shopping_quantity : ''}{ing.shopping_unit ? ` ${ing.shopping_unit}` : ''}
+                      </span>
+                    )}
                     <button type="button" onClick={() => startEditIng(i)} className="p-1.5 rounded-lg hover:bg-stone-100 dark:hover:bg-stone-700 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Pencil className="w-3 h-3 text-stone-400" />
                     </button>
@@ -1038,7 +1091,8 @@ function RecipeForm({
                       </button>
                     </div>
                   ) : overrideIdx === i ? (
-                    <div className="relative flex-1 min-w-0">
+                    <div className="relative flex-1 min-w-0 flex items-center gap-1.5">
+                      <div className="relative flex-1 min-w-0">
                       <input
                         autoFocus
                         className="input w-full text-xs py-1"
@@ -1084,6 +1138,15 @@ function RecipeForm({
                           )}
                         </div>
                       )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setOverrideIdx(null); setOverrideSearch(''); setOverrideResults([]) }}
+                        className="p-1 rounded hover:bg-stone-100 dark:hover:bg-stone-700 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 shrink-0"
+                        title="Cancel search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ) : (
                     <div className="space-y-1.5">
@@ -1265,9 +1328,9 @@ function UnitConversionDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white dark:bg-stone-900 rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col">
         <div className="p-5 border-b border-stone-100 dark:border-stone-800">
-          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">Unit conversions</h2>
+          <h2 className="text-base font-semibold text-stone-900 dark:text-stone-100">Shopping unit conversions</h2>
           <p className="text-sm text-stone-500 dark:text-stone-400 mt-1">
-            Some ingredient units differ from their catalogue units. Review the conversions below.
+            Some ingredient units differ from their catalogue units. Set the shopping quantity so your list orders in the right unit — your recipe text stays unchanged.
           </p>
         </div>
 
@@ -1284,7 +1347,7 @@ function UnitConversionDialog({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-stone-800 dark:text-stone-100">{conv.ingredient_name}</p>
                     <p className="text-xs text-stone-400 mt-0.5">
-                      Recipe: {conv.original_quantity} {conv.original_unit} → Catalogue unit: {conv.product_unit}
+                      Recipe shows: {conv.original_quantity} {conv.original_unit} · Shopping list will use: {conv.product_unit}
                     </p>
                     {conv.note && conv.note !== 'Loading…' && (
                       <p className="text-xs text-brand-600 dark:text-brand-400 mt-0.5">{conv.note}</p>
@@ -1303,7 +1366,7 @@ function UnitConversionDialog({
                 {conv.apply && (
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="text-xs text-stone-400 block mb-0.5">Quantity</label>
+                      <label className="text-xs text-stone-400 block mb-0.5">Shopping qty</label>
                       <input
                         className="input text-sm py-1"
                         type="number"
@@ -1314,7 +1377,7 @@ function UnitConversionDialog({
                       />
                     </div>
                     <div className="flex-1">
-                      <label className="text-xs text-stone-400 block mb-0.5">Unit</label>
+                      <label className="text-xs text-stone-400 block mb-0.5">Shopping unit</label>
                       <input
                         className="input text-sm py-1"
                         value={conv.edit_unit}

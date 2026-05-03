@@ -106,6 +106,8 @@ class RecipeIngredient(Base):
     quantity: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     unit: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    shopping_quantity: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    shopping_unit: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     recipe: Mapped["Recipe"] = relationship("Recipe", back_populates="ingredients")
     product: Mapped[Optional["Product"]] = relationship("Product", back_populates="recipe_ingredients")

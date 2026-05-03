@@ -230,14 +230,14 @@ def add_from_meals(body: AddFromMealsBody, db: Session = Depends(get_db)):
             .all()
         )
         for ing in ingredients:
-            # Use the product's canonical unit when the ingredient has no unit set
-            effective_unit = ing.unit
+            # Prefer the explicit shopping unit/qty; fall back to display unit
+            effective_unit = ing.shopping_unit or ing.unit
             if not effective_unit and ing.product_id and ing.product:
                 effective_unit = ing.product.unit
 
             ing_id: int | str = ing.product_id if ing.product_id else ing.ingredient_name
             key = (ing_id, _unit_key(effective_unit))
-            qty = ing.quantity or 1.0
+            qty = (ing.shopping_quantity if ing.shopping_quantity is not None else ing.quantity) or 1.0
             if key not in acc:
                 acc[key] = {}
             if meal_id in acc[key]:
