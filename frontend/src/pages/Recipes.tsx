@@ -458,9 +458,9 @@ function RecipeDetail({
             {recipe.ingredients.map(ing => (
               <div key={ing.id} className="flex items-center gap-3 px-4 py-2.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-brand-400 shrink-0" />
-                <span className="text-sm text-stone-700 dark:text-stone-300 flex-1">{ing.ingredient_name}</span>
+                <span className="text-sm text-stone-700 dark:text-stone-300 flex-1 min-w-0 truncate">{ing.ingredient_name}</span>
                 {(ing.quantity || ing.unit) && (
-                  <span className="text-xs text-stone-400">
+                  <span className="text-xs text-stone-400 shrink-0">
                     {ing.quantity}{ing.unit ? ` ${ing.unit}` : ''}
                   </span>
                 )}

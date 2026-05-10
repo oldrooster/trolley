@@ -88,7 +88,7 @@ export default function SuggestionsBanner({ onAddItem, refreshKey }: Props) {
               return (
                 <div key={product.id} className="flex items-center gap-3 px-4 py-2.5">
                   <ShoppingCart className="w-3.5 h-3.5 text-brand-400 shrink-0" />
-                  <span className="flex-1 text-sm text-brand-900 truncate">{name}</span>
+                  <span className="flex-1 min-w-0 text-sm text-brand-900 truncate">{name}</span>
                   {product.category && (
                     <span className="text-[10px] text-brand-400 shrink-0 hidden sm:block">
                       {product.category.icon} {product.category.name}

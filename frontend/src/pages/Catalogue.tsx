@@ -191,7 +191,7 @@ export default function Catalogue() {
         <EmptyState query={debouncedQuery} onAdd={openAdd} />
       ) : debouncedQuery.trim() ? (
         /* Search results — wrapped in card, grouped by base_name */
-        <div className="card divide-y divide-stone-100">
+        <div className="card divide-y divide-stone-100 overflow-hidden">
           {Object.entries(groupByBase(products)).map(([, group]) => (
             <BaseGroup
               key={group[0].base_name}
@@ -212,7 +212,7 @@ export default function Catalogue() {
                 <span>{category.icon}</span>{category.name}
                 <span className="font-normal text-stone-300">({catProducts.length})</span>
               </h2>
-              <div className="card divide-y divide-stone-100">
+              <div className="card divide-y divide-stone-100 overflow-hidden">
                 {Object.entries(groupByBase(catProducts)).map(([, group]) => (
                   <BaseGroup
                     key={group[0].base_name}
@@ -231,7 +231,7 @@ export default function Catalogue() {
               <h2 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
                 Uncategorised <span className="font-normal text-stone-300">({uncategorised.length})</span>
               </h2>
-              <div className="card divide-y divide-stone-100">
+              <div className="card divide-y divide-stone-100 overflow-hidden">
                 {Object.entries(groupByBase(uncategorised)).map(([, group]) => (
                   <BaseGroup
                     key={group[0].base_name}
